@@ -1,30 +1,58 @@
-# React + TypeScript + Vite
+# MeowBox Social App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern social media platform built with React, TypeScript, Vite, Tailwind CSS, and Appwrite. Connect, share, and explore posts in a fast and responsive web app.
 
-Currently, two official plugins are available:
+## 🚀 Features
+- User authentication (sign up, sign in)
+- Create, edit, and delete posts
+- Like, bookmark, and comment on posts
+- Explore trending content and users
+- Profile management
+- Responsive design for all devices
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠 Tech Stack
+- **Frontend:** React, TypeScript, Vite
+- **Styling:** Tailwind CSS, PostCSS
+- **Backend:** Appwrite (API integration)
+- **State Management:** React Context, React Query
 
-## Expanding the ESLint configuration
+## 📦 Installation
+1. **Clone the repository:**
+  ```powershell
+  git clone https://github.com/TechmoNoway/meowbox-social-app.git
+  cd meowbox-social-app
+  ```
+2. **Install dependencies:**
+  ```powershell
+  npm install
+  ```
+3. **Configure environment variables:**
+  - Copy `.env.example` to `.env` and update with your Appwrite credentials.
+4. **Start the development server:**
+  ```powershell
+  npm run dev
+  ```
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+## 📁 Folder Structure
+```
+public/           # Static assets (icons, images)
+src/
+  _auth/          # Auth layouts & forms
+  _root/          # Main layouts & pages
+  components/     # Reusable UI & shared components
+  constants/      # App constants
+  context/        # React Contexts
+  hooks/          # Custom hooks
+  lib/            # Utilities, API, validation
+  types/          # TypeScript types
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## 📝 Contributing
+Contributions are welcome! Please open issues or submit pull requests for improvements and bug fixes.
+
+## 📄 License
+This project is licensed under the MIT License.
+
+---
+
+Feel free to customize this README for your own needs!

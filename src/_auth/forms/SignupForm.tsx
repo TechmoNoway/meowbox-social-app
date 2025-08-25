@@ -81,11 +81,9 @@ const SignUpForm = () => {
       <div className="sm:w-420 flex flex-col">
         <img src="/assets/images/logo.svg" alt="logo" />
 
-        <h2 className="b3-bold md:h2-bold pt-5 sm:pt-12">
-          Create a new account
-        </h2>
+        <h2 className="b3-bold md:h2-bold pt-5 sm:pt-12">Create a new account</h2>
         <p className="text-light-3 small-medium md:base-regular mt-2">
-          To use Foxgram, please enter your details 😑
+          To use Meowbox, please enter your details 😑
         </p>
 
         <form
@@ -125,12 +123,7 @@ const SignUpForm = () => {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    placeholder=""
-                    className="shad-input"
-                    {...field}
-                  />
+                  <Input type="email" placeholder="" className="shad-input" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -165,10 +158,7 @@ const SignUpForm = () => {
           </Button>
           <p className="text-small-regular text-light-2 text-center mt-2">
             Already have an account?
-            <Link
-              to="/sign-in"
-              className="text-primary-500 text-small-semibold ml-1"
-            >
+            <Link to="/sign-in" className="text-primary-500 text-small-semibold ml-1">
               Log in
             </Link>
           </p>
