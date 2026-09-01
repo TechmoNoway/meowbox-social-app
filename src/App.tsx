@@ -8,6 +8,7 @@ import {
   EditPost,
   Explore,
   Home,
+  LikedPosts,
   PostDetails,
   Profile,
   Saved,
@@ -20,7 +21,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 const App = () => {
   return (
-    <main className="flex h-screen">
+    <main className="flex h-screen bg-dark-1 text-light-1">
       <Routes>
         {/* Public Routes */}
         <Route element={<AuthLayout />}>
@@ -38,6 +39,8 @@ const App = () => {
           <Route path="/update-post/:id" element={<EditPost />} />
           <Route path="/posts/:id" element={<PostDetails />} />
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/liked-posts" element={<LikedPosts />} />
           <Route path="/update-profile/:id" element={<UpdateProfile />} />
         </Route>
       </Routes>

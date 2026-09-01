@@ -1,23 +1,37 @@
-import { Models } from "appwrite";
-import Loader from "./Loader";
 import GridPostList from "./GridPostList";
+import Loader from "./Loader";
 
 type SearchResultProps = {
   isSearchFetching: boolean;
-  searchedPosts: Models.Document[];
+  searchedPosts: any;
 };
 
 const SearchResults = ({
   isSearchFetching,
   searchedPosts,
 }: SearchResultProps) => {
-  if (isSearchFetching) return <Loader />;
+  if (isSearchFetching) {
+    return (
+      <div className="w-full flex-center py-12">
+        <Loader size="lg" />
+      </div>
+    );
+  }
 
-  if (searchedPosts && searchedPosts.documents.length > 0)
-    return <GridPostList posts={searchedPosts.documents} />;
+  const posts = searchedPosts?.documents || [];
+
+  if (posts.length > 0) {
+    return <GridPostList posts={posts} />;
+  }
 
   return (
-    <p className="text-light-4 mt-10 text-center w-full">No result found</p>
+    <div className="w-full flex flex-col items-center justify-center p-12 text-center glass-card rounded-[28px]">
+      <span className="text-4xl mb-3">🔍</span>
+      <h4 className="text-base font-bold text-light-1">No matching posts found</h4>
+      <p className="text-xs text-light-4 mt-1">
+        Try searching for tags like <span className="text-primary-500 font-semibold">#cutekitties</span>, <span className="text-secondary-500 font-semibold">#sunbeam</span>, or <span className="text-accent-cyan font-semibold">#loaf</span>
+      </p>
+    </div>
   );
 };
 

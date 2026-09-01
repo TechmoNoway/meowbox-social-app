@@ -1,5 +1,3 @@
-
-
 export type INavLink = {
   imgURL: string;
   route: string;
@@ -27,7 +25,7 @@ export type IUpdatePost = {
   postId: string;
   caption: string;
   imageId: string;
-  imagesUrl: URL;
+  imagesUrl: URL | string;
   file: File[];
   location?: string;
   tags?: string;
@@ -40,6 +38,9 @@ export type IUser = {
   email: string;
   imageUrl: string;
   bio: string;
+  followersCount?: number;
+  followingCount?: number;
+  postsCount?: number;
 };
 
 export type INewUser = {

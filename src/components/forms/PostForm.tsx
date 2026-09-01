@@ -1,7 +1,3 @@
-import * as z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -13,22 +9,35 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "../ui/textarea";
-import FileUploader from "../shared/FileUploader";
-import { PostValidation } from "@/lib/validation";
-import { Models } from "appwrite";
+import { useToast } from "../ui/use-toast";
 import { useUserContext } from "@/context/AuthContext";
-import { toast } from "../ui/use-toast";
-import { useNavigate } from "react-router-dom";
 import {
   useCreatePost,
   useUpdatePost,
 } from "@/lib/react-query/queriesAndMutations";
+import { PostValidation } from "@/lib/validation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { MapPin, Sparkles, Tag } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
+import * as z from "zod";
+import FileUploader from "../shared/FileUploader";
 import Loader from "../shared/Loader";
 
 type PostFormProps = {
-  post?: Models.Document;
+  post?: any;
   action: "Create" | "Update";
 };
+
+const SUGGESTED_TAGS = [
+  "cutekitties",
+  "catlife",
+  "loaf",
+  "playtime",
+  "purr",
+  "naptime",
+  "aesthetic",
+];
 
 const PostForm = ({ post, action }: PostFormProps) => {
   const { mutateAsync: createPost, isPending: isLoadingCreate } =
@@ -36,7 +45,7 @@ const PostForm = ({ post, action }: PostFormProps) => {
   const { mutateAsync: updatePost, isPending: isLoadingUpdate } =
     useUpdatePost();
   const { user } = useUserContext();
-
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const form = useForm<z.infer<typeof PostValidation>>({
@@ -45,9 +54,22 @@ const PostForm = ({ post, action }: PostFormProps) => {
       caption: post ? post?.caption : "",
       file: [],
       location: post ? post?.location : "",
-      tags: post ? post?.tags.join(",") : "",
+      tags: post ? (Array.isArray(post.tags) ? post.tags.join(", ") : post.tags) : "",
     },
   });
+
+  const handleAddTag = (tag: string) => {
+    const currentTags = form.getValues("tags") || "";
+    const tagsList = currentTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (!tagsList.includes(tag)) {
+      const updated = tagsList.length > 0 ? `${tagsList.join(", ")}, ${tag}` : tag;
+      form.setValue("tags", updated);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof PostValidation>) {
     if (post && action === "Update") {
@@ -59,11 +81,14 @@ const PostForm = ({ post, action }: PostFormProps) => {
       });
 
       if (!updatedPost) {
-        toast({
-          title: "Some things went wrong! Please try again.",
+        return toast({
+          variant: "destructive",
+          title: "Update failed",
+          description: "Please try again later.",
         });
       }
 
+      toast({ title: "Post updated successfully! ✨" });
       return navigate(`/posts/${post.$id}`);
     }
 
@@ -73,30 +98,41 @@ const PostForm = ({ post, action }: PostFormProps) => {
     });
 
     if (!newPost) {
-      toast({
+      return toast({
         variant: "destructive",
-        title: "Something went wong! Please try again.",
+        title: "Post creation failed",
+        description: "Please ensure all fields are filled.",
       });
-    } else {
-      navigate("/");
     }
+
+    toast({ title: "Purr-fect! Post created successfully 🐾" });
+    navigate("/");
   }
+
+  const captionValue = form.watch("caption") || "";
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="flex flex-col gap-9 w-full max-w-5xl"
+        className="flex flex-col gap-7 w-full max-w-5xl"
       >
+        {/* Caption Field */}
         <FormField
           control={form.control}
           name="caption"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="shad-form_label">Caption</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel className="shad-form_label">Caption</FormLabel>
+                <span className="text-[11px] text-light-4">
+                  {captionValue.length} / 2200
+                </span>
+              </div>
               <FormControl>
                 <Textarea
-                  className="shad-textarea custom-scrollbar"
+                  placeholder="What is your cat up to today? 🐾 Tell the world..."
+                  className="shad-textarea custom-scrollbar min-h-28"
                   {...field}
                 />
               </FormControl>
@@ -104,13 +140,14 @@ const PostForm = ({ post, action }: PostFormProps) => {
             </FormItem>
           )}
         />
-        {/* file */}
+
+        {/* Media Upload Zone */}
         <FormField
           control={form.control}
           name="file"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="shad-form_label">Add Photos</FormLabel>
+              <FormLabel className="shad-form_label">Add Photos / Media</FormLabel>
               <FormControl>
                 <FileUploader
                   fieldChange={field.onChange}
@@ -121,48 +158,96 @@ const PostForm = ({ post, action }: PostFormProps) => {
             </FormItem>
           )}
         />
+
+        {/* Location Field */}
         <FormField
           control={form.control}
           name="location"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="shad-form_label">Add Location</FormLabel>
+              <FormLabel className="shad-form_label">Location</FormLabel>
               <FormControl>
-                <Input type="text" className="shad-input" {...field} />
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-secondary-500" />
+                  <Input
+                    type="text"
+                    placeholder="e.g. Cozy Corner, Sunny Living Room, Tokyo"
+                    className="shad-input pl-10"
+                    {...field}
+                  />
+                </div>
               </FormControl>
               <FormMessage className="shad-form_message" />
             </FormItem>
           )}
         />
+
+        {/* Tags Field with Suggested Chips */}
         <FormField
           control={form.control}
           name="tags"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="shad-form_label">
-                Add Tags (seperated by comma",")
+                Tags (comma separated)
               </FormLabel>
               <FormControl>
-                <Input
-                  type="text"
-                  className="shad-input"
-                  placeholder="Art, Expression, Learn"
-                  {...field}
-                />
+                <div className="relative">
+                  <Tag className="absolute left-3.5 top-3.5 w-4 h-4 text-primary-500" />
+                  <Input
+                    type="text"
+                    placeholder="cutekitties, loaf, sunbeam"
+                    className="shad-input pl-10"
+                    {...field}
+                  />
+                </div>
               </FormControl>
               <FormMessage className="shad-form_message" />
+
+              {/* Quick Tag Suggestions */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                <span className="text-[11px] text-light-4 mr-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-primary-500" /> Quick tags:
+                </span>
+                {SUGGESTED_TAGS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleAddTag(t)}
+                    className="text-[11px] px-2.5 py-1 rounded-full bg-dark-3/80 hover:bg-primary-500/20 text-light-3 hover:text-primary-500 border border-white/[0.06] transition-colors"
+                  >
+                    #{t}
+                  </button>
+                ))}
+              </div>
             </FormItem>
           )}
         />
-        <div className="flex gap-4 items-center justify-end">
-          <Button type="button" className="shad-button_dark_4">
+
+        {/* Action Controls */}
+        <div className="flex items-center justify-end gap-4 pt-4 border-t border-white/[0.06]">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="shad-button_dark_4"
+          >
             Cancel
           </Button>
+
           <Button
             type="submit"
-            className="shad-button_primary whitespace-nowrap"
+            disabled={isLoadingCreate || isLoadingUpdate}
+            className="shad-button_primary"
           >
-            {isLoadingCreate || isLoadingUpdate ? <Loader /> : `${action} Post`}
+            {isLoadingCreate || isLoadingUpdate ? (
+              <div className="flex items-center gap-2">
+                <Loader size="sm" />
+                <span>{action === "Create" ? "Publishing..." : "Saving..."}</span>
+              </div>
+            ) : (
+              <span>{action} Post</span>
+            )}
           </Button>
         </div>
       </form>
