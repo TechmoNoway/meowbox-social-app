@@ -53,7 +53,7 @@ export async function createUserAccount(user: INewUser) {
       user.name
     );
 
-    if (!newAccount) throw Error;
+    if (!newAccount) throw new Error("Account creation failed");
 
     const avatarUrl = avatars.getInitials(user.name);
 
@@ -66,9 +66,9 @@ export async function createUserAccount(user: INewUser) {
     });
 
     return newUser;
-  } catch (error) {
-    console.error(error);
-    return error;
+  } catch (error: any) {
+    console.warn("createUserAccount:", error?.message || error);
+    throw error;
   }
 }
 
@@ -90,8 +90,9 @@ export async function saveUserToDB(user: {
     );
 
     return newUser;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("saveUserToDB:", error?.message || error);
+    return user;
   }
 }
 
@@ -103,14 +104,21 @@ export async function signInAccount(user: { email: string; password: string }) {
   }
 
   try {
-    // Supports both createEmailPasswordSession (Appwrite 14+) and createEmailSession (earlier versions)
+    // If there is an existing session, delete it first to prevent session conflict
+    try {
+      await account.deleteSession("current");
+    } catch (_) {
+      // Ignored if no session
+    }
+
     const sessionFn =
       (account as any).createEmailPasswordSession?.bind(account) ||
       (account as any).createEmailSession?.bind(account);
     const session = await sessionFn(user.email, user.password);
     return session;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("signInAccount:", error?.message || error);
+    throw error;
   }
 }
 
@@ -124,8 +132,9 @@ export async function signOutAccount() {
   try {
     const session = await account.deleteSession("current");
     return session;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    // If already logged out (401), treat as success
+    return { status: "ok" };
   }
 }
 
@@ -153,7 +162,7 @@ export async function getCurrentUser() {
   try {
     const currentAccount = await account.get();
 
-    if (!currentAccount) throw Error;
+    if (!currentAccount) return null;
 
     const currentUser = await databases.listDocuments(
       appwriteConfig.databaseId,
@@ -161,11 +170,26 @@ export async function getCurrentUser() {
       [Query.equal("accountId", currentAccount.$id)]
     );
 
-    if (!currentUser) throw Error;
+    if (!currentUser || currentUser.documents.length === 0) {
+      // Fallback: create mock profile for current Appwrite account
+      const avatarUrl = avatars.getInitials(currentAccount.name || "User");
+      return {
+        $id: currentAccount.$id,
+        name: currentAccount.name || "Appwrite User",
+        username: currentAccount.email.split("@")[0] || "user",
+        email: currentAccount.email,
+        imageUrl: avatarUrl,
+        bio: "Cat lover on MeowBox 🐾",
+        save: [],
+        posts: [],
+        liked: [],
+      };
+    }
 
     return currentUser.documents[0];
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    // Guest 401 error is normal when user is not logged in yet
+    return null;
   }
 }
 
@@ -185,9 +209,11 @@ export async function getUsers(limit?: number) {
       appwriteConfig.userCollectionId,
       queries
     );
+    if (!users || users.documents.length === 0) {
+      return { documents: MOCK_USERS };
+    }
     return users;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
     return { documents: MOCK_USERS };
   }
 }
@@ -222,8 +248,9 @@ export async function getUserById(userId: string) {
       userId
     );
     return user;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    const found = MOCK_USERS.find((u) => u.$id === userId) || MOCK_USERS[0];
+    return found;
   }
 }
 
@@ -255,12 +282,12 @@ export async function updateUser(user: IUpdateUser) {
 
     if (hasFileToUpdate) {
       const uploadedFile = await uploadFile(user.file[0]);
-      if (!uploadedFile) throw Error;
+      if (!uploadedFile) throw new Error("File upload failed");
 
       const fileUrl = getFilePreview(uploadedFile.$id);
       if (!fileUrl) {
         await deleteFile(uploadedFile.$id);
-        throw Error;
+        throw new Error("Preview generation failed");
       }
       image = { ...image, imageUrl: fileUrl, imageId: uploadedFile.$id };
     }
@@ -278,8 +305,9 @@ export async function updateUser(user: IUpdateUser) {
     );
 
     return updatedUser;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("updateUser error:", error?.message || error);
+    throw error;
   }
 }
 
@@ -321,12 +349,12 @@ export async function createPost(post: INewPost) {
 
   try {
     const uploadedFile = await uploadFile(post.file[0]);
-    if (!uploadedFile) throw Error;
+    if (!uploadedFile) throw new Error("Upload failed");
 
     const fileUrl = getFilePreview(uploadedFile.$id);
     if (!fileUrl) {
       await deleteFile(uploadedFile.$id);
-      throw Error;
+      throw new Error("File preview failed");
     }
 
     const tags = post.tags?.replace(/ /g, "").split(",") || [];
@@ -347,12 +375,13 @@ export async function createPost(post: INewPost) {
 
     if (!newPost) {
       await deleteFile(uploadedFile.$id);
-      throw Error;
+      throw new Error("Post creation failed");
     }
 
     return newPost;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("createPost error:", error?.message || error);
+    throw error;
   }
 }
 
@@ -367,8 +396,8 @@ export async function uploadFile(file: File) {
       file
     );
     return uploadedFile;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("uploadFile error:", error?.message || error);
   }
 }
 
@@ -386,8 +415,8 @@ export function getFilePreview(fileId: string) {
       100
     );
     return fileUrl;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("getFilePreview error:", error?.message || error);
   }
 }
 
@@ -396,8 +425,8 @@ export async function deleteFile(fileId: string) {
   try {
     await storage.deleteFile(appwriteConfig.storageId, fileId);
     return { status: "ok" };
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    return { status: "ok" };
   }
 }
 
@@ -414,9 +443,11 @@ export async function getRecentPosts() {
       appwriteConfig.postCollectionId,
       [Query.orderDesc("$createdAt"), Query.limit(20)]
     );
+    if (!posts || posts.documents.length === 0) {
+      return { documents: getStoredPosts() };
+    }
     return posts;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
     return { documents: getStoredPosts() };
   }
 }
@@ -442,8 +473,14 @@ export async function likePost(postId: string, likesArray: string[]) {
       }
     );
     return updatedPost;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    // Graceful local update if database error
+    const posts = getStoredPosts();
+    const updated = posts.map((p) =>
+      p.$id === postId ? { ...p, likes: likesArray } : p
+    );
+    saveStoredPosts(updated);
+    return updated.find((p) => p.$id === postId);
   }
 }
 
@@ -468,8 +505,12 @@ export async function savePost(postId: string, userId: string) {
       }
     );
     return updatedPost;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    const saves = getStoredSaves();
+    if (!saves.includes(postId)) {
+      saveStoredSaves([...saves, postId]);
+    }
+    return { $id: `save_${postId}`, post: { $id: postId }, user: { $id: userId } };
   }
 }
 
@@ -489,8 +530,11 @@ export async function deleteSavedPost(savedRecordId: string) {
       savedRecordId
     );
     return { status: "ok" };
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    const postId = savedRecordId.replace("save_", "");
+    const saves = getStoredSaves();
+    saveStoredSaves(saves.filter((id) => id !== postId && `save_${id}` !== savedRecordId));
+    return { status: "ok" };
   }
 }
 
@@ -509,8 +553,7 @@ export async function getPostById(postId: string) {
       postId
     );
     return post;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
     const posts = getStoredPosts();
     return posts.find((p) => p.$id === postId) || posts[0];
   }
@@ -550,12 +593,12 @@ export async function updatePost(post: IUpdatePost) {
 
     if (hasFileToUpdate) {
       const uploadedFile = await uploadFile(post.file[0]);
-      if (!uploadedFile) throw Error;
+      if (!uploadedFile) throw new Error("Upload failed");
 
       const fileUrl = getFilePreview(uploadedFile.$id);
       if (!fileUrl) {
         await deleteFile(uploadedFile.$id);
-        throw Error;
+        throw new Error("Preview failed");
       }
       image = { ...image, imagesUrl: fileUrl, imageId: uploadedFile.$id };
     }
@@ -576,8 +619,9 @@ export async function updatePost(post: IUpdatePost) {
     );
 
     return updatedPost;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.warn("updatePost error:", error?.message || error);
+    throw error;
   }
 }
 
@@ -589,7 +633,7 @@ export async function deletePost(postId: string, imageId: string) {
     return { status: "ok" };
   }
 
-  if (!postId || !imageId) throw Error;
+  if (!postId) throw new Error("Missing postId");
 
   try {
     await databases.deleteDocument(
@@ -597,9 +641,16 @@ export async function deletePost(postId: string, imageId: string) {
       appwriteConfig.postCollectionId,
       postId
     );
+    if (imageId) {
+      try {
+        await deleteFile(imageId);
+      } catch (_) {}
+    }
     return { status: "ok" };
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    const posts = getStoredPosts();
+    saveStoredPosts(posts.filter((p) => p.$id !== postId));
+    return { status: "ok" };
   }
 }
 
@@ -622,9 +673,11 @@ export async function getInfinitePosts({ pageParam }: { pageParam: number }) {
       appwriteConfig.postCollectionId,
       queries
     );
+    if (!posts || posts.documents.length === 0) {
+      return { documents: getStoredPosts() };
+    }
     return posts;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
     return { documents: getStoredPosts() };
   }
 }
@@ -649,14 +702,24 @@ export async function searchPosts(searchTerm: string) {
       appwriteConfig.postCollectionId,
       [Query.search("caption", searchTerm)]
     );
+    if (!posts || posts.documents.length === 0) {
+      const term = searchTerm.toLowerCase();
+      const fallback = getStoredPosts().filter(
+        (p) =>
+          p.caption.toLowerCase().includes(term) ||
+          p.tags.some((t) => t.toLowerCase().includes(term))
+      );
+      return { documents: fallback };
+    }
     return posts;
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
     const term = searchTerm.toLowerCase();
-    const posts = getStoredPosts().filter((p) =>
-      p.caption.toLowerCase().includes(term)
+    const fallback = getStoredPosts().filter(
+      (p) =>
+        p.caption.toLowerCase().includes(term) ||
+        p.tags.some((t) => t.toLowerCase().includes(term))
     );
-    return { documents: posts };
+    return { documents: fallback };
   }
 }
 

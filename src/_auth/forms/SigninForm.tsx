@@ -37,29 +37,37 @@ const SigninForm = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof SigninValidation>) => {
-    const session = await signInAccount({
-      email: values.email,
-      password: values.password,
-    });
+    try {
+      const session = await signInAccount({
+        email: values.email,
+        password: values.password,
+      });
 
-    if (!session) {
+      if (!session) {
+        return toast({
+          variant: "destructive",
+          title: "Sign in failed",
+          description: "Invalid email or password. Please try again or use 1-Click Demo.",
+        });
+      }
+
+      const isLoggedIn = await checkAuthUser();
+
+      if (isLoggedIn) {
+        form.reset();
+        navigate("/");
+      } else {
+        return toast({
+          variant: "destructive",
+          title: "Authentication error",
+          description: "Could not log in. Please try again.",
+        });
+      }
+    } catch (error: any) {
       return toast({
         variant: "destructive",
         title: "Sign in failed",
-        description: "Please check your credentials or use Instant Demo Login.",
-      });
-    }
-
-    const isLoggedIn = await checkAuthUser();
-
-    if (isLoggedIn) {
-      form.reset();
-      navigate("/");
-    } else {
-      return toast({
-        variant: "destructive",
-        title: "Authentication error",
-        description: "Could not log into user account.",
+        description: error?.message || "Invalid credentials. Please check your email and password.",
       });
     }
   };

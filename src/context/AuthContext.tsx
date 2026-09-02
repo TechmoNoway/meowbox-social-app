@@ -9,8 +9,8 @@ export const INITIAL_USER: IUser = CURRENT_DEMO_USER;
 
 export const INITIAL_STATE = {
   user: INITIAL_USER,
-  isLoading: false,
-  isAuthenticated: true,
+  isLoading: true,
+  isAuthenticated: false,
   setUser: () => {},
   setIsAuthenticated: () => {},
   checkAuthUser: async () => false as boolean,
@@ -30,9 +30,9 @@ type IContextType = {
 const AuthContext = createContext<IContextType>(INITIAL_STATE);
 
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<IUser>(getStoredUser() || INITIAL_USER);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [user, setUser] = useState<IUser>(INITIAL_USER);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const navigate = useNavigate();
 
@@ -40,6 +40,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const demoUser = getStoredUser() || INITIAL_USER;
     setUser(demoUser);
     setIsAuthenticated(true);
+    setIsLoading(false);
     localStorage.setItem("meowbox_logged_in", "true");
     navigate("/");
   };
@@ -48,6 +49,11 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     try {
       if (!isAppwriteConfigured) {
+        const loggedIn = localStorage.getItem("meowbox_logged_in");
+        if (loggedIn === "false") {
+          setIsAuthenticated(false);
+          return false;
+        }
         const storedUser = getStoredUser() || INITIAL_USER;
         setUser(storedUser);
         setIsAuthenticated(true);
@@ -70,11 +76,10 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return true;
       }
 
-      // If appwrite configured but no session
       setIsAuthenticated(false);
       return false;
     } catch (error) {
-      console.error(error);
+      setIsAuthenticated(false);
       return false;
     } finally {
       setIsLoading(false);
@@ -82,26 +87,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    if (isAppwriteConfigured) {
-      if (
-        localStorage.getItem("cookieFallback") === "[]" ||
-        localStorage.getItem("cookieFallback") === null
-      ) {
-        // Appwrite session check
-        checkAuthUser();
-      } else {
-        checkAuthUser();
-      }
-    } else {
-      // Demo / Mock mode is enabled by default
-      const loggedIn = localStorage.getItem("meowbox_logged_in");
-      if (loggedIn === "false") {
-        setIsAuthenticated(false);
-      } else {
-        setIsAuthenticated(true);
-        setUser(getStoredUser() || INITIAL_USER);
-      }
-    }
+    checkAuthUser();
   }, []);
 
   const value = {

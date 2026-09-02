@@ -45,38 +45,48 @@ const SignUpForm = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof SignupValidation>) => {
-    const newUser = await createUserAccount(values);
+    try {
+      const newUser = await createUserAccount(values);
 
-    if (!newUser) {
+      if (!newUser) {
+        return toast({
+          variant: "destructive",
+          title: "Registration failed",
+          description: "Please check your inputs and try again.",
+        });
+      }
+
+      const session = await signInAccount({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (!session) {
+        return toast({
+          title: "Account created! 🐾",
+          description: "Please log in with your new email and password.",
+        });
+      }
+
+      const isLoggedIn = await checkAuthUser();
+
+      if (isLoggedIn) {
+        form.reset();
+        navigate("/");
+      } else {
+        navigate("/sign-in");
+      }
+    } catch (error: any) {
+      let description = "Please check your details and try again.";
+      if (error?.code === 409 || error?.message?.includes("already exists")) {
+        description = "An account with this email already exists. Please log in instead.";
+      } else if (error?.message) {
+        description = error.message;
+      }
       return toast({
         variant: "destructive",
         title: "Registration failed",
-        description: "Please check your inputs and try again.",
-      });
-    }
-
-    const session = await signInAccount({
-      email: values.email,
-      password: values.password,
-    });
-
-    if (!session) {
-      return toast({
-        variant: "destructive",
-        title: "Sign in failed",
-        description: "Please try logging in directly.",
-      });
-    }
-
-    const isLoggedIn = await checkAuthUser();
-
-    if (isLoggedIn) {
-      form.reset();
-      navigate("/");
-    } else {
-      return toast({
-        variant: "destructive",
-        title: "Authentication failed",
+        description,
       });
     }
   };
