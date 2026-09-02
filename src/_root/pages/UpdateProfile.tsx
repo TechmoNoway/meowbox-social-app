@@ -18,7 +18,7 @@ import {
   useUpdateUser,
 } from "@/lib/react-query/queriesAndMutations";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Camera, Sparkles, UserCheck } from "lucide-react";
+import { ArrowLeft, Camera, Settings } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
@@ -89,21 +89,21 @@ const UpdateProfile = () => {
       imageUrl: avatarPreview,
     });
 
-    toast({ title: "Profile updated! ✨" });
+    toast({ title: "Profile saved! ✨" });
     navigate(`/profile/${user.id}`);
   };
 
   if (isUserLoading && !currentUser) {
     return (
-      <div className="w-full h-full flex-center">
+      <div className="w-full h-full flex-center bg-dark-1">
         <Loader size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="common-container">
-      <div className="flex flex-col gap-8 max-w-5xl w-full">
+    <div className="common-container bg-dark-1">
+      <div className="flex flex-col gap-8 max-w-2xl w-full">
         {/* Back Link */}
         <Button
           onClick={() => navigate(-1)}
@@ -116,37 +116,29 @@ const UpdateProfile = () => {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-500 to-secondary-500 flex-center text-white shadow-glow">
-            <UserCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="h3-bold md:h2-bold text-left text-white tracking-tight">
-              Edit Profile
-            </h1>
-            <p className="text-xs text-light-4 flex items-center gap-1">
-              Customize your cat avatar, bio & personal details <Sparkles className="w-3 h-3 text-secondary-500" />
-            </p>
-          </div>
+          <h1 className="h3-bold md:h2-bold text-left text-white tracking-tight">
+            Edit profile
+          </h1>
         </div>
 
         {/* Edit Form Container */}
-        <div className="p-6 sm:p-10 rounded-[28px] glass-card border border-white/10 shadow-2xl">
+        <div className="p-6 sm:p-8 rounded-2xl bg-dark-2 border border-dark-4 shadow-xl">
           {/* Avatar Picker */}
-          <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 pb-8 border-b border-white/[0.08]">
+          <div className="flex items-center gap-5 mb-8 pb-6 border-b border-dark-4 bg-dark-3 p-4 rounded-xl">
             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <Avatar className="h-24 w-24 ring-4 ring-primary-500/40 group-hover:ring-primary-500 transition-all shadow-xl">
+              <Avatar className="h-16 w-16 ring-2 ring-primary-500">
                 <AvatarImage src={avatarPreview} />
-                <AvatarFallback className="bg-primary-500 text-white font-bold text-xl">
+                <AvatarFallback className="bg-dark-4 text-white font-bold">
                   {user.name ? user.name[0] : "U"}
                 </AvatarFallback>
               </Avatar>
 
               <div className="absolute inset-0 rounded-full bg-black/40 flex-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white" />
+                <Camera className="w-5 h-5 text-white" />
               </div>
             </div>
 
-            <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2">
+            <div className="flex flex-col items-start gap-1">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -154,29 +146,29 @@ const UpdateProfile = () => {
                 className="hidden"
                 onChange={handleAvatarChange}
               />
-              <Button
+              <span className="text-sm font-bold text-light-1">
+                {user.username || user.name}
+              </span>
+              <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="h-9 px-4 rounded-xl bg-dark-4 hover:bg-dark-5 text-light-1 border border-white/10 text-xs font-semibold"
+                className="text-xs font-bold text-primary-500 hover:text-primary-600 transition-colors"
               >
-                Change Avatar Photo
-              </Button>
-              <p className="text-[11px] text-light-4">
-                Recommended: Square JPG or PNG, at least 400x400px
-              </p>
+                Change profile photo
+              </button>
             </div>
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleUpdate)} className="flex flex-col gap-6">
+            <form onSubmit={form.handleSubmit(handleUpdate)} className="flex flex-col gap-5">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="shad-form_label">Display Name</FormLabel>
+                    <FormLabel className="shad-form_label">Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Luna Whiskers" className="shad-input" {...field} />
+                      <Input placeholder="Your full name" className="shad-input" {...field} />
                     </FormControl>
                     <FormMessage className="shad-form_message" />
                   </FormItem>
@@ -190,7 +182,7 @@ const UpdateProfile = () => {
                   <FormItem>
                     <FormLabel className="shad-form_label">Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="lunacat" className="shad-input" {...field} />
+                      <Input placeholder="username" className="shad-input" {...field} />
                     </FormControl>
                     <FormMessage className="shad-form_message" />
                   </FormItem>
@@ -202,12 +194,12 @@ const UpdateProfile = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="shad-form_label">Email Address</FormLabel>
+                    <FormLabel className="shad-form_label">Email</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="luna@meowbox.app"
-                        className="shad-input"
+                        placeholder="email@example.com"
+                        className="shad-input opacity-70"
                         disabled
                         {...field}
                       />
@@ -225,7 +217,7 @@ const UpdateProfile = () => {
                     <FormLabel className="shad-form_label">Bio</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Tell the feline world about yourself..."
+                        placeholder="Bio..."
                         className="shad-textarea min-h-24"
                         {...field}
                       />
@@ -235,7 +227,7 @@ const UpdateProfile = () => {
                 )}
               />
 
-              <div className="flex items-center justify-end gap-4 pt-4 border-t border-white/[0.08]">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-dark-4">
                 <Button
                   type="button"
                   variant="ghost"
@@ -252,10 +244,10 @@ const UpdateProfile = () => {
                   {isUpdatingUser ? (
                     <div className="flex items-center gap-2">
                       <Loader size="sm" />
-                      <span>Saving...</span>
+                      <span>Submitting...</span>
                     </div>
                   ) : (
-                    "Save Changes"
+                    "Submit"
                   )}
                 </Button>
               </div>

@@ -1,53 +1,52 @@
 import GridPostList from "@/components/shared/GridPostList";
 import Loader from "@/components/shared/Loader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserContext } from "@/context/AuthContext";
 import {
   getStoredFollows,
   getStoredPosts,
   getStoredSaves,
+  MOCK_HIGHLIGHTS,
+  MOCK_USERS,
   saveStoredFollows,
 } from "@/lib/mock/mockData";
 import {
-  useGetCurrentUser,
   useGetUserById,
 } from "@/lib/react-query/queriesAndMutations";
 import {
   Bookmark,
-  Edit,
+  Clapperboard,
   Grid,
-  Heart,
-  MapPin,
-  Sparkles,
+  Link as LinkIcon,
+  Plus,
+  Settings,
+  Tag,
   UserCheck,
   UserPlus,
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import LikedPosts from "./LikedPosts";
 
 const Profile = () => {
   const { id } = useParams();
   const { user: currentUser } = useUserContext();
-
   const targetUserId = id || currentUser.id;
   const isOwnProfile = targetUserId === currentUser.id;
 
-  const { data: userProfile, isPending: isProfileLoading } =
-    useGetUserById(targetUserId);
-  const { data: loggedInUser } = useGetCurrentUser();
-
+  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved" | "tagged">("posts");
   const [followedUsers, setFollowedUsers] = useState<string[]>(getStoredFollows());
 
-  const toggleFollow = (creatorId: string) => {
+  const { data: userProfile, isLoading: isProfileLoading } = useGetUserById(
+    targetUserId
+  );
+
+  const toggleFollow = () => {
     let updated: string[];
-    if (followedUsers.includes(creatorId)) {
-      updated = followedUsers.filter((uid) => uid !== creatorId);
+    if (followedUsers.includes(targetUserId)) {
+      updated = followedUsers.filter((uid) => uid !== targetUserId);
     } else {
-      updated = [...followedUsers, creatorId];
+      updated = [...followedUsers, targetUserId];
     }
     setFollowedUsers(updated);
     saveStoredFollows(updated);
@@ -55,7 +54,7 @@ const Profile = () => {
 
   if (isProfileLoading && !userProfile) {
     return (
-      <div className="w-full h-full flex-center">
+      <div className="w-full h-full flex-center bg-dark-1">
         <Loader size="lg" />
       </div>
     );
@@ -64,8 +63,8 @@ const Profile = () => {
   const profileData: any = isOwnProfile
     ? {
         ...currentUser,
-        followersCount: 1420,
-        followingCount: 382,
+        followersCount: 14200,
+        followingCount: 480,
       }
     : userProfile || currentUser;
 
@@ -85,187 +84,231 @@ const Profile = () => {
   const isFollowing = followedUsers.includes(targetUserId);
 
   return (
-    <div className="profile-container">
-      <div className="max-w-5xl w-full flex flex-col gap-8">
-        {/* Profile Card with Cover Banner */}
-        <div className="relative rounded-[32px] overflow-hidden glass-card border border-white/10 shadow-2xl">
-          {/* Cover Photo Gradient Banner */}
-          <div className="h-44 sm:h-56 w-full bg-gradient-to-r from-primary-500/40 via-secondary-500/30 to-accent-cyan/40 relative">
-            <div className="absolute inset-0 bg-dark-1/30 backdrop-blur-[1px]" />
-            <div className="absolute top-4 right-4">
-              <Badge variant="glow" className="text-xs">
-                Verified Creator ✨
-              </Badge>
-            </div>
+    <div className="profile-container bg-dark-1">
+      <div className="max-w-4xl w-full flex flex-col gap-8">
+        {/* Profile Header (Instagram Desktop & Mobile Layout) */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 sm:gap-14 pb-8 border-b border-dark-4">
+          {/* Large Avatar with Story Ring */}
+          <div className="ig-story-ring shrink-0">
+            <Avatar className="h-24 w-24 sm:h-36 sm:w-36 ring-4 ring-dark-1">
+              <AvatarImage src={profileData.imageUrl} />
+              <AvatarFallback className="bg-dark-3 text-2xl font-bold">
+                {profileData.name ? profileData.name[0] : "U"}
+              </AvatarFallback>
+            </Avatar>
           </div>
 
-          {/* Profile Header Content */}
-          <div className="px-6 sm:px-10 pb-8 pt-0 relative flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 -mt-16 sm:-mt-20">
-            {/* Avatar & User Details */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-              <div className="relative group">
-                <Avatar className="h-28 w-28 sm:h-32 sm:w-32 ring-4 ring-dark-2 shadow-2xl">
-                  <AvatarImage
-                    src={profileData.imageUrl}
-                    alt={profileData.name}
-                  />
-                  <AvatarFallback className="bg-primary-500 text-white font-bold text-2xl">
-                    {profileData.name ? profileData.name[0] : "M"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="absolute bottom-2 right-2 w-4 h-4 bg-emerald-500 border-2 border-dark-2 rounded-full" />
-              </div>
+          {/* User Details & Action Buttons */}
+          <div className="flex flex-col gap-4 flex-1 w-full text-center sm:text-left">
+            {/* Row 1: Username & Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+              <h2 className="text-xl font-normal text-light-1">
+                {profileData.username || profileData.name}
+              </h2>
 
-              <div className="flex flex-col gap-1 pb-2">
-                <div className="flex items-center justify-center sm:justify-start gap-2">
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-white">
-                    {profileData.name}
-                  </h2>
-                  <Sparkles className="w-4 h-4 text-accent-cyan" />
-                </div>
-                <p className="text-xs sm:text-sm text-light-4 font-medium">
-                  @{profileData.username}
-                </p>
-              </div>
-            </div>
-
-            {/* Profile Action Buttons */}
-            <div className="pb-2">
               {isOwnProfile ? (
-                <Link
-                  to={`/update-profile/${currentUser.id}`}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-dark-4 hover:bg-dark-5 text-light-1 text-xs font-semibold border border-white/10 shadow-md transition-all active:scale-95"
-                >
-                  <Edit className="w-4 h-4 text-primary-500" />
-                  <span>Edit Profile</span>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link to={`/update-profile/${currentUser.id}`}>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-4 rounded-lg bg-dark-3 hover:bg-dark-4 text-xs font-semibold text-light-1 border-dark-4"
+                    >
+                      Edit profile
+                    </Button>
+                  </Link>
+
+                  <Link to={`/update-profile/${currentUser.id}`}>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-4 rounded-lg bg-dark-3 hover:bg-dark-4 text-xs font-semibold text-light-1 border-dark-4"
+                    >
+                      View archive
+                    </Button>
+                  </Link>
+
+                  <Link
+                    to={`/update-profile/${currentUser.id}`}
+                    className="p-1.5 rounded-lg text-light-1 hover:bg-dark-3 transition-colors"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </Link>
+                </div>
               ) : (
-                <Button
-                  onClick={() => toggleFollow(targetUserId)}
-                  className={`h-10 px-6 rounded-2xl text-xs font-semibold transition-all ${
-                    isFollowing
-                      ? "bg-dark-4 text-light-3 hover:bg-dark-5 hover:text-white"
-                      : "bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-glow hover:shadow-glow-pink"
-                  }`}
-                >
-                  {isFollowing ? (
-                    <div className="flex items-center gap-1.5">
-                      <UserCheck className="w-4 h-4" />
-                      <span>Following</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <UserPlus className="w-4 h-4" />
-                      <span>Follow</span>
-                    </div>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={toggleFollow}
+                    className={`h-8 px-5 rounded-lg text-xs font-semibold transition-all ${
+                      isFollowing
+                        ? "bg-dark-3 text-light-2 hover:bg-dark-4 border border-dark-4"
+                        : "bg-primary-500 hover:bg-primary-600 text-white"
+                    }`}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="h-8 px-4 rounded-lg bg-dark-3 hover:bg-dark-4 text-xs font-semibold text-light-1 border-dark-4"
+                  >
+                    Message
+                  </Button>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Bio & Stats Bar */}
-          <div className="px-6 sm:px-10 pb-8 pt-2 flex flex-col gap-6 border-t border-white/[0.06]">
-            {/* Bio */}
-            <p className="text-sm leading-relaxed text-light-2 max-w-2xl">
-              {profileData.bio || "Happy cat living life to the fullest! 🐾 💤"}
-            </p>
-
-            {/* Stats Row */}
-            <div className="flex items-center gap-8 text-center sm:text-left">
+            {/* Row 2: Stats (Posts, Followers, Following) */}
+            <div className="flex items-center justify-center sm:justify-start gap-8 text-sm">
               <div>
-                <span className="text-base sm:text-lg font-extrabold text-white mr-1.5">
+                <span className="font-bold text-light-1">
                   {userPosts.length}
-                </span>
-                <span className="text-xs text-light-4">Posts</span>
+                </span>{" "}
+                <span className="text-light-3">posts</span>
               </div>
-
               <div>
-                <span className="text-base sm:text-lg font-extrabold text-white mr-1.5">
-                  {profileData.followersCount || 1420}
-                </span>
-                <span className="text-xs text-light-4">Followers</span>
+                <span className="font-bold text-light-1">
+                  {(profileData.followersCount || 14200).toLocaleString()}
+                </span>{" "}
+                <span className="text-light-3">followers</span>
               </div>
-
               <div>
-                <span className="text-base sm:text-lg font-extrabold text-white mr-1.5">
-                  {profileData.followingCount || 382}
-                </span>
-                <span className="text-xs text-light-4">Following</span>
+                <span className="font-bold text-light-1">
+                  {(profileData.followingCount || 480).toLocaleString()}
+                </span>{" "}
+                <span className="text-light-3">following</span>
+              </div>
+            </div>
+
+            {/* Row 3: Name, Bio, Links */}
+            <div className="flex flex-col gap-1 text-xs sm:text-sm">
+              <span className="font-bold text-light-1">{profileData.name}</span>
+              <p className="text-light-2 whitespace-pre-line leading-relaxed max-w-md">
+                {profileData.bio || "No bio yet."}
+              </p>
+              <div className="flex items-center gap-1 text-xs text-primary-500 hover:underline pt-1">
+                <LinkIcon className="w-3.5 h-3.5" />
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold"
+                >
+                  meowbox.app/{profileData.username || "creator"}
+                </a>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabbed Content Navigation (Posts, Liked, Saved) */}
-        <Tabs defaultValue="posts" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 bg-dark-3/80 p-1.5 rounded-2xl border border-white/[0.08]">
-            <TabsTrigger
-              value="posts"
-              className="flex items-center gap-2 rounded-xl text-xs font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary-500 data-[state=active]:to-secondary-500 data-[state=active]:text-white"
+        {/* Story Highlights Tray */}
+        <div className="flex items-center gap-6 overflow-x-auto custom-scrollbar pb-2">
+          {MOCK_HIGHLIGHTS.map((hl) => (
+            <div
+              key={hl.id}
+              className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer group"
             >
-              <Grid className="w-3.5 h-3.5" />
-              <span>Posts</span>
-            </TabsTrigger>
+              <div className="p-1 rounded-full border border-dark-4 group-hover:border-light-4 transition-colors">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={hl.cover} />
+                  <AvatarFallback className="bg-dark-3 text-xs">
+                    {hl.title[0]}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <span className="text-xs text-light-2 font-medium truncate max-w-[72px] text-center">
+                {hl.title}
+              </span>
+            </div>
+          ))}
 
-            <TabsTrigger
-              value="liked"
-              className="flex items-center gap-2 rounded-xl text-xs font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary-500 data-[state=active]:to-secondary-500 data-[state=active]:text-white"
-            >
-              <Heart className="w-3.5 h-3.5" />
-              <span>Liked</span>
-            </TabsTrigger>
+          {isOwnProfile && (
+            <div className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer group">
+              <div className="h-[72px] w-[72px] rounded-full border border-dark-4 group-hover:border-light-4 flex-center text-light-3 bg-dark-2 transition-colors">
+                <Plus className="w-6 h-6 stroke-[1.5px]" />
+              </div>
+              <span className="text-xs text-light-2 font-medium">New</span>
+            </div>
+          )}
+        </div>
 
-            <TabsTrigger
-              value="saved"
-              className="flex items-center gap-2 rounded-xl text-xs font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary-500 data-[state=active]:to-secondary-500 data-[state=active]:text-white"
+        {/* Instagram Tab Switcher */}
+        <div className="flex items-center justify-center border-t border-dark-4">
+          <button
+            onClick={() => setActiveTab("posts")}
+            className={`profile-tab ${
+              activeTab === "posts"
+                ? "border-t-2 border-white text-white font-bold"
+                : "text-light-4"
+            }`}
+          >
+            <Grid className="w-4 h-4" />
+            <span>Posts</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("reels")}
+            className={`profile-tab ${
+              activeTab === "reels"
+                ? "border-t-2 border-white text-white font-bold"
+                : "text-light-4"
+            }`}
+          >
+            <Clapperboard className="w-4 h-4" />
+            <span>Reels</span>
+          </button>
+
+          {isOwnProfile && (
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`profile-tab ${
+                activeTab === "saved"
+                  ? "border-t-2 border-white text-white font-bold"
+                  : "text-light-4"
+              }`}
             >
-              <Bookmark className="w-3.5 h-3.5" />
+              <Bookmark className="w-4 h-4" />
               <span>Saved</span>
-            </TabsTrigger>
-          </TabsList>
+            </button>
+          )}
 
-          {/* Posts Tab Content */}
-          <TabsContent value="posts" className="mt-8">
-            {userPosts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center glass-card rounded-[24px]">
-                <span className="text-3xl mb-2">📸</span>
-                <p className="font-semibold text-light-3 text-sm">
-                  No posts published yet
-                </p>
-                {isOwnProfile && (
-                  <Link
-                    to="/create-post"
-                    className="mt-4 px-4 py-2 rounded-xl bg-primary-500 text-white text-xs font-semibold shadow-glow"
-                  >
-                    Create Post
-                  </Link>
-                )}
+          <button
+            onClick={() => setActiveTab("tagged")}
+            className={`profile-tab ${
+              activeTab === "tagged"
+                ? "border-t-2 border-white text-white font-bold"
+                : "text-light-4"
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            <span>Tagged</span>
+          </button>
+        </div>
+
+        {/* Tab Content Display */}
+        <div>
+          {activeTab === "posts" && (
+            <GridPostList posts={userPosts} showUser={false} />
+          )}
+
+          {activeTab === "reels" && (
+            <GridPostList posts={userPosts.slice(0, 3)} showUser={false} />
+          )}
+
+          {activeTab === "saved" && isOwnProfile && (
+            <GridPostList posts={savedPosts} showUser={false} />
+          )}
+
+          {activeTab === "tagged" && (
+            <div className="py-16 text-center text-light-4 text-sm flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-full border border-dark-4 flex-center text-light-3">
+                <Tag className="w-6 h-6 stroke-[1.5px]" />
               </div>
-            ) : (
-              <GridPostList posts={userPosts} showUser={false} />
-            )}
-          </TabsContent>
-
-          {/* Liked Tab Content */}
-          <TabsContent value="liked" className="mt-8">
-            <LikedPosts />
-          </TabsContent>
-
-          {/* Saved Tab Content */}
-          <TabsContent value="saved" className="mt-8">
-            {savedPosts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center glass-card rounded-[24px]">
-                <span className="text-3xl mb-2">🔖</span>
-                <p className="font-semibold text-light-3 text-sm">
-                  No saved posts in this collection
-                </p>
-              </div>
-            ) : (
-              <GridPostList posts={savedPosts} showUser={true} />
-            )}
-          </TabsContent>
-        </Tabs>
+              <p className="font-bold text-light-1 text-base">Photos of you</p>
+              <p className="text-xs text-light-4">
+                When people tag you in photos, they'll appear here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

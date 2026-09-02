@@ -1,224 +1,357 @@
 import { useUserContext } from "@/context/AuthContext";
-import { useAddComment } from "@/lib/react-query/queriesAndMutations";
+import {
+  useAddComment,
+  useDeletePost,
+  useDeleteSavedPost,
+  useGetCurrentUser,
+  useLikePost,
+  useSavePost,
+} from "@/lib/react-query/queriesAndMutations";
 import { multiFormatDateString } from "@/lib/utils";
-import { Edit, Heart, MapPin, Send, Sparkles } from "lucide-react";
+import confetti from "canvas-confetti";
+import {
+  Bookmark,
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
+  Send,
+  Smile,
+} from "lucide-react";
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import PostStats from "./PostStats";
+import { toast } from "../ui/use-toast";
+import PostOptionsModal from "./PostOptionsModal";
+import SharePostModal from "./SharePostModal";
 
 type PostCardProps = {
   post: any;
 };
 
 const PostCard = ({ post }: PostCardProps) => {
+  const navigate = useNavigate();
   const { user } = useUserContext();
-  const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [doubleTapLiked, setDoubleTapLiked] = useState(false);
+  const { data: currentUser } = useGetCurrentUser();
 
-  const { mutate: addComment, isPending: isAddingComment } = useAddComment();
+  const [showHeartOverlay, setShowHeartOverlay] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
+  const [showAllComments, setShowAllComments] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+
+  // Likes state
+  const likesList: string[] = post?.likes || [];
+  const [likes, setLikes] = useState<string[]>(likesList);
+  const isLiked = likes.includes(user.id);
+
+  // Saved state
+  const savedPostRecord = currentUser?.save?.find(
+    (record: any) => record?.post?.$id === post?.$id || record?.post?.id === post?.$id
+  );
+  const [isSaved, setIsSaved] = useState(!!savedPostRecord);
+
+  // Mutations
+  const { mutate: likePostMutation } = useLikePost();
+  const { mutate: savePostMutation } = useSavePost();
+  const { mutate: deleteSavedPostMutation } = useDeleteSavedPost();
+  const { mutate: deletePostMutation } = useDeletePost();
+  const { mutateAsync: addCommentMutation, isPending: isAddingComment } =
+    useAddComment();
+
+  const isAuthor = user.id === post?.creator?.$id || user.id === post?.creator?.id;
+
+  const handleLike = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    let newLikes = [...likes];
+    const hasLiked = newLikes.includes(user.id);
+
+    if (hasLiked) {
+      newLikes = newLikes.filter((id) => id !== user.id);
+    } else {
+      newLikes.push(user.id);
+      // Heart burst
+      confetti({
+        particleCount: 18,
+        spread: 45,
+        origin: { y: 0.7 },
+        colors: ["#ED4956", "#DD2A7B", "#F58529"],
+      });
+    }
+
+    setLikes(newLikes);
+    likePostMutation({ postId: post.$id, likesArray: newLikes });
+  };
+
+  const handleDoubleTap = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowHeartOverlay(true);
+    setTimeout(() => setShowHeartOverlay(false), 900);
+
+    if (!likes.includes(user.id)) {
+      handleLike();
+    }
+  };
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (savedPostRecord || isSaved) {
+      setIsSaved(false);
+      deleteSavedPostMutation(savedPostRecord?.$id || `save_${post.$id}`);
+      toast({ title: "Removed from Saved" });
+    } else {
+      setIsSaved(true);
+      savePostMutation({ postId: post.$id, userId: user.id });
+      toast({ title: "Saved to your collection! 🔖" });
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim()) return;
+
+    await addCommentMutation({
+      postId: post.$id,
+      commentText: commentInput.trim(),
+      user,
+    });
+
+    setCommentInput("");
+  };
+
+  const handleDeletePost = () => {
+    deletePostMutation({ postId: post.$id, imageId: post?.imageId });
+    toast({ title: "Post deleted" });
+  };
 
   if (!post || !post.creator) return null;
 
-  const isAuthor =
-    user.id === post.creator.$id ||
-    user.id === post.creator.id ||
-    user.id === post.creator;
-
-  const handleDoubleTap = () => {
-    setDoubleTapLiked(true);
-    setTimeout(() => setDoubleTapLiked(false), 800);
-  };
-
-  const handleSendComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-
-    addComment({
-      postId: post.$id,
-      commentText: commentText.trim(),
-      user,
-    });
-    setCommentText("");
-  };
-
-  const creatorAvatar =
-    post.creator.imageUrl ||
-    post.creator.avatarUrl ||
-    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=400&q=80";
-
-  const tags = Array.isArray(post.tags) ? post.tags : [];
-  const comments = Array.isArray(post.comments) ? post.comments : [];
+  const comments = post.comments || [];
+  const visibleComments = showAllComments ? comments : comments.slice(-2);
 
   return (
-    <article className="post-card relative overflow-hidden group">
-      {/* Post Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/profile/${post.creator.$id || post.creator.id || user.id}`}
-            className="relative"
-          >
-            <Avatar className="h-11 w-11 ring-2 ring-primary-500/40 hover:ring-primary-500 transition-all">
-              <AvatarImage src={creatorAvatar} alt={post.creator.name} />
-              <AvatarFallback className="bg-primary-500/20 text-primary-500 font-bold">
-                {post.creator.name ? post.creator.name[0] : "C"}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
+    <>
+      <article className="post-card">
+        {/* Post Header */}
+        <div className="flex items-center justify-between p-3.5">
+          <div className="flex items-center gap-3">
+            <Link to={`/profile/${post.creator.$id || post.creator.id}`}>
+              <div className="ig-story-ring">
+                <Avatar className="h-8 w-8 ring-2 ring-dark-1">
+                  <AvatarImage src={post.creator.imageUrl} />
+                  <AvatarFallback className="text-xs bg-dark-4">
+                    {post.creator.name ? post.creator.name[0] : "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            </Link>
 
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-col leading-tight">
               <Link
-                to={`/profile/${post.creator.$id || post.creator.id || user.id}`}
-                className="font-bold text-light-1 text-sm sm:text-base hover:text-primary-500 transition-colors"
+                to={`/profile/${post.creator.$id || post.creator.id}`}
+                className="text-xs font-bold text-light-1 hover:text-light-3 transition-colors flex items-center gap-1"
               >
-                {post.creator.name}
+                <span>{post.creator.username || post.creator.name}</span>
               </Link>
-              <Sparkles className="w-3.5 h-3.5 text-accent-cyan" />
-            </div>
-
-            <div className="flex items-center gap-2 text-light-4 text-xs">
-              <span>{multiFormatDateString(post.$createdAt)}</span>
               {post.location && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center gap-0.5 truncate max-w-[140px] sm:max-w-[200px]">
-                    <MapPin className="w-3 h-3 text-secondary-500" />
-                    {post.location}
-                  </span>
-                </>
+                <span className="text-[11px] text-light-4 font-normal truncate max-w-[200px]">
+                  {post.location}
+                </span>
               )}
             </div>
           </div>
+
+          <button
+            onClick={() => setShowOptionsModal(true)}
+            className="p-1 rounded-full text-light-4 hover:text-white transition-colors"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Edit Button for Author */}
-        {isAuthor && (
-          <Link
-            to={`/update-post/${post.$id}`}
-            className="p-2 rounded-xl text-light-4 hover:text-light-1 hover:bg-white/[0.06] transition-all"
-            title="Edit Post"
-          >
-            <Edit className="w-4 h-4" />
-          </Link>
-        )}
-      </div>
-
-      {/* Caption & Tags */}
-      <div className="mb-4 text-sm sm:text-[15px] leading-relaxed text-light-2">
-        <p>{post.caption}</p>
-
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {tags.map((tag: string, index: number) => (
-              <Badge
-                key={index}
-                variant="outline"
-                className="text-xs bg-dark-3/60 text-primary-500 border-primary-500/20 hover:bg-primary-500/10 cursor-pointer transition-colors"
-              >
-                #{tag}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Media Image with double-tap heart animation */}
-      {post.imagesUrl && (
+        {/* Post Image Container */}
         <div
-          className="relative rounded-[22px] overflow-hidden bg-dark-1/90 cursor-pointer select-none"
+          className="relative w-full aspect-square bg-black overflow-hidden select-none cursor-pointer"
           onDoubleClick={handleDoubleTap}
         >
-          <Link to={`/posts/${post.$id}`}>
-            <img
-              src={post.imagesUrl}
-              alt="post"
-              className="w-full object-cover max-h-[520px] transition-transform duration-500 hover:scale-[1.01]"
-              loading="lazy"
-            />
-          </Link>
+          <img
+            src={post.imagesUrl}
+            alt="post"
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              post.filter ? `filter-${post.filter}` : ""
+            }`}
+          />
 
-          {/* Double Tap Heart Pop Overlay */}
-          {doubleTapLiked && (
-            <div className="absolute inset-0 flex-center pointer-events-none animate-in fade-in-0 zoom-in-50 duration-200">
-              <div className="w-20 h-20 rounded-full bg-secondary-500/30 backdrop-blur-md flex-center shadow-glow-pink">
-                <Heart className="w-12 h-12 fill-secondary-500 text-secondary-500 animate-bounce" />
+          {/* Double Tap Heart Pop Animation */}
+          {showHeartOverlay && (
+            <div className="absolute inset-0 flex-center pointer-events-none animate-fade-in">
+              <Heart className="w-24 h-24 text-secondary-500 fill-secondary-500 drop-shadow-[0_10px_25px_rgba(237,73,86,0.6)] animate-like-bounce" />
+            </div>
+          )}
+        </div>
+
+        {/* Post Action Buttons */}
+        <div className="p-3.5 pb-2 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            {/* Left Actions: Like, Comment, Share */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleLike}
+                className="transition-transform active:scale-125"
+              >
+                <Heart
+                  className={`w-6 h-6 stroke-[1.75px] ${
+                    isLiked
+                      ? "fill-secondary-500 text-secondary-500"
+                      : "text-light-1 hover:text-light-3"
+                  }`}
+                />
+              </button>
+
+              <button
+                onClick={() => navigate(`/posts/${post.$id}`)}
+                className="text-light-1 hover:text-light-3 transition-colors"
+              >
+                <MessageCircle className="w-6 h-6 stroke-[1.75px] -rotate-90" />
+              </button>
+
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="text-light-1 hover:text-light-3 transition-colors"
+              >
+                <Send className="w-6 h-6 stroke-[1.75px]" />
+              </button>
+            </div>
+
+            {/* Right Action: Bookmark */}
+            <button
+              onClick={handleSave}
+              className="text-light-1 hover:text-light-3 transition-transform active:scale-125"
+            >
+              <Bookmark
+                className={`w-6 h-6 stroke-[1.75px] ${
+                  isSaved ? "fill-white text-white" : ""
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Likes Counter */}
+          <div className="text-xs font-bold text-light-1">
+            {likes.length > 0 ? (
+              <span>{likes.length.toLocaleString()} likes</span>
+            ) : (
+              <span className="font-normal text-light-4">Be the first to like this</span>
+            )}
+          </div>
+
+          {/* Caption */}
+          {post.caption && (
+            <div className="text-xs text-light-1 leading-relaxed">
+              <Link
+                to={`/profile/${post.creator.$id || post.creator.id}`}
+                className="font-bold mr-2 hover:underline inline"
+              >
+                {post.creator.username || post.creator.name}
+              </Link>
+              <span className="font-normal">{post.caption}</span>
+            </div>
+          )}
+
+          {/* Tag Chips */}
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {post.tags.map((tag: string, index: number) => (
+                <span
+                  key={index}
+                  className="text-[11px] text-primary-500 font-medium hover:underline cursor-pointer"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Comments Section */}
+          {comments.length > 0 && (
+            <div className="flex flex-col gap-1 pt-1">
+              {comments.length > 2 && (
+                <button
+                  onClick={() => setShowAllComments(!showAllComments)}
+                  className="text-xs text-light-4 hover:text-light-3 text-left w-fit font-normal"
+                >
+                  {showAllComments
+                    ? "Hide comments"
+                    : `View all ${comments.length} comments`}
+                </button>
+              )}
+
+              <div className="flex flex-col gap-1">
+                {visibleComments.map((c: any) => (
+                  <div key={c.id} className="text-xs leading-snug flex items-start gap-1.5">
+                    <span className="font-bold text-light-1 shrink-0">
+                      {c.userName}:
+                    </span>
+                    <span className="text-light-2">{c.text}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
+
+          {/* Timestamp */}
+          <span className="text-[10px] uppercase text-light-4 tracking-wider pt-1">
+            {multiFormatDateString(post.$createdAt)}
+          </span>
         </div>
-      )}
 
-      {/* Post Actions & Stats */}
-      <PostStats
-        post={post}
-        userId={user.id}
-        onCommentClick={() => setShowComments(!showComments)}
-        commentCount={comments.length}
-      />
-
-      {/* Expandable Quick Comments Section */}
-      {showComments && (
-        <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-col gap-3 animate-in fade-in-0 duration-200">
-          {/* Comments List */}
-          {comments.length > 0 ? (
-            <div className="flex flex-col gap-2.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-              {comments.map((comment: any, idx: number) => (
-                <div
-                  key={comment.id || idx}
-                  className="flex items-start gap-2.5 p-2.5 rounded-xl bg-dark-3/40 text-xs"
-                >
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={comment.userAvatar} />
-                    <AvatarFallback className="text-[10px]">
-                      {comment.userName ? comment.userName[0] : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-light-1">
-                        {comment.userName}
-                      </span>
-                      <span className="text-[10px] text-light-4">
-                        {comment.createdAt}
-                      </span>
-                    </div>
-                    <p className="text-light-2 mt-0.5">{comment.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-light-4 text-center py-2">
-              No comments yet. Be the first to meow! 🐾
-            </p>
-          )}
-
-          {/* New Comment Input */}
-          <form onSubmit={handleSendComment} className="flex items-center gap-2 mt-1">
-            <input
-              type="text"
-              placeholder="Add a friendly comment..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="flex-1 h-9 px-3.5 rounded-xl bg-dark-3/80 border border-white/[0.08] text-xs text-light-1 placeholder:text-light-4 focus:outline-none focus:border-primary-500"
-            />
-            <Button
+        {/* Quick Comment Input */}
+        <form
+          onSubmit={handleAddComment}
+          className="border-t border-dark-4 px-3.5 py-2.5 flex items-center gap-2"
+        >
+          <Smile className="w-5 h-5 text-light-4 hover:text-light-3 cursor-pointer shrink-0" />
+          <input
+            type="text"
+            placeholder="Add a comment..."
+            value={commentInput}
+            onChange={(e) => setCommentInput(e.target.value)}
+            className="w-full bg-transparent text-xs text-light-1 placeholder:text-light-4 focus:outline-none"
+          />
+          {commentInput.trim() && (
+            <button
               type="submit"
-              size="sm"
-              disabled={isAddingComment || !commentText.trim()}
-              className="h-9 px-3 rounded-xl bg-primary-500 hover:bg-primary-600 text-white"
+              disabled={isAddingComment}
+              className="text-xs font-bold text-primary-500 hover:text-primary-600 shrink-0 transition-colors"
             >
-              <Send className="w-3.5 h-3.5" />
-            </Button>
-          </form>
-        </div>
+              Post
+            </button>
+          )}
+        </form>
+      </article>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <SharePostModal
+          post={post}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
-    </article>
+
+      {/* Options Menu Modal */}
+      {showOptionsModal && (
+        <PostOptionsModal
+          post={post}
+          isAuthor={isAuthor}
+          onClose={() => setShowOptionsModal(false)}
+          onEdit={() => navigate(`/update-post/${post.$id}`)}
+          onDelete={handleDeletePost}
+          onShare={() => {
+            setShowOptionsModal(false);
+            setShowShareModal(true);
+          }}
+        />
+      )}
+    </>
   );
 };
 

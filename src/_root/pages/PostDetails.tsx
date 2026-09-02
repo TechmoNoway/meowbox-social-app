@@ -1,296 +1,377 @@
+import GridPostList from "@/components/shared/GridPostList";
 import Loader from "@/components/shared/Loader";
-import PostStats from "@/components/shared/PostStats";
+import PostOptionsModal from "@/components/shared/PostOptionsModal";
+import SharePostModal from "@/components/shared/SharePostModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
 import { useUserContext } from "@/context/AuthContext";
 import {
   useAddComment,
   useDeletePost,
+  useDeleteSavedPost,
+  useGetCurrentUser,
   useGetPostById,
   useGetRecentPosts,
+  useLikePost,
+  useSavePost,
 } from "@/lib/react-query/queriesAndMutations";
 import { multiFormatDateString } from "@/lib/utils";
-import { ArrowLeft, Edit, MapPin, Send, Sparkles, Trash2 } from "lucide-react";
+import confetti from "canvas-confetti";
+import {
+  ArrowLeft,
+  Bookmark,
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
+  Send,
+  Smile,
+} from "lucide-react";
 import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import GridPostList from "@/components/shared/GridPostList";
+import { toast } from "@/components/ui/use-toast";
 
 const PostDetails = () => {
-  const { id } = useParams();
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const { id } = useParams();
   const { user } = useUserContext();
 
-  const [commentText, setCommentText] = useState("");
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
-  const { data: post, isPending } = useGetPostById(id || "");
-  const { data: relatedPostsData } = useGetRecentPosts();
-  const { mutate: deletePost, isPending: isDeleting } = useDeletePost();
-  const { mutate: addComment, isPending: isAddingComment } = useAddComment();
+  const { data: post, isLoading } = useGetPostById(id || "");
+  const { data: userPosts, isLoading: isUserPostLoading } = useGetRecentPosts();
+  const { data: currentUser } = useGetCurrentUser();
 
-  if (isPending || !post) {
+  const { mutate: likePostMutation } = useLikePost();
+  const { mutate: savePostMutation } = useSavePost();
+  const { mutate: deleteSavedPostMutation } = useDeleteSavedPost();
+  const { mutate: deletePostMutation } = useDeletePost();
+  const { mutateAsync: addCommentMutation, isPending: isAddingComment } =
+    useAddComment();
+
+  // Likes state
+  const likesList: string[] = post?.likes || [];
+  const [likes, setLikes] = useState<string[]>(likesList);
+  const isLiked = likes.includes(user.id);
+
+  // Saved state
+  const savedPostRecord = currentUser?.save?.find(
+    (record: any) => record?.post?.$id === post?.$id || record?.post?.id === post?.$id
+  );
+  const [isSaved, setIsSaved] = useState(!!savedPostRecord);
+
+  const isAuthor =
+    user.id === post?.creator?.$id || user.id === post?.creator?.id;
+
+  const handleLike = () => {
+    let newLikes = [...likes];
+    const hasLiked = newLikes.includes(user.id);
+
+    if (hasLiked) {
+      newLikes = newLikes.filter((userId) => userId !== user.id);
+    } else {
+      newLikes.push(user.id);
+      confetti({
+        particleCount: 20,
+        spread: 50,
+        origin: { y: 0.7 },
+        colors: ["#ED4956", "#DD2A7B", "#F58529"],
+      });
+    }
+
+    setLikes(newLikes);
+    likePostMutation({ postId: post?.$id || "", likesArray: newLikes });
+  };
+
+  const handleSave = () => {
+    if (savedPostRecord || isSaved) {
+      setIsSaved(false);
+      deleteSavedPostMutation(savedPostRecord?.$id || `save_${post?.$id}`);
+      toast({ title: "Removed from Saved" });
+    } else {
+      setIsSaved(true);
+      savePostMutation({ postId: post?.$id || "", userId: user.id });
+      toast({ title: "Saved to your collection! 🔖" });
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim() || !post) return;
+
+    await addCommentMutation({
+      postId: post.$id,
+      commentText: commentInput.trim(),
+      user,
+    });
+
+    setCommentInput("");
+  };
+
+  const handleDeletePost = () => {
+    deletePostMutation({ postId: post?.$id || "", imageId: post?.imageId });
+    toast({ title: "Post deleted" });
+    navigate("/");
+  };
+
+  const relatedPosts =
+    userPosts?.documents.filter((p: any) => p.$id !== post?.$id).slice(0, 6) ||
+    [];
+
+  if (isLoading || !post) {
     return (
-      <div className="w-full h-full flex-center">
+      <div className="flex-center w-full h-full bg-dark-1">
         <Loader size="lg" />
       </div>
     );
   }
 
-  const isAuthor =
-    user.id === post?.creator?.$id ||
-    user.id === post?.creator?.id ||
-    user.id === post?.creator;
-
-  const handleDeletePost = () => {
-    deletePost(
-      { postId: post.$id, imageId: post?.imageId || "" },
-      {
-        onSuccess: () => {
-          toast({ title: "Post deleted successfully" });
-          navigate("/");
-        },
-      }
-    );
-  };
-
-  const handleSendComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-
-    addComment({
-      postId: post.$id,
-      commentText: commentText.trim(),
-      user,
-    });
-    setCommentText("");
-  };
-
-  const tags = Array.isArray(post.tags) ? post.tags : [];
-  const comments = Array.isArray(post.comments) ? post.comments : [];
-  const creatorAvatar =
-    post.creator?.imageUrl ||
-    post.creator?.avatarUrl ||
-    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=400&q=80";
-
-  const relatedPosts = (relatedPostsData?.documents || []).filter(
-    (p: any) => p.$id !== post.$id
-  );
+  const comments = post.comments || [];
 
   return (
-    <div className="post_details-container">
-      {/* Top Back Navigation */}
-      <div className="w-full max-w-5xl flex items-center justify-between">
+    <div className="post_details-container bg-dark-1">
+      {/* Back Button */}
+      <div className="w-full max-w-5xl">
         <Button
           onClick={() => navigate(-1)}
           variant="ghost"
           className="flex items-center gap-2 text-light-3 hover:text-white p-0 hover:bg-transparent"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-semibold">Back to feed</span>
+          <span className="text-sm font-semibold">Back</span>
         </Button>
       </div>
 
-      {/* Main Post Details Card */}
+      {/* Main Split-view Post Card */}
       <div className="post_details-card">
-        {/* Post Image Showcase */}
-        <div className="xl:w-[52%] bg-dark-1/80 flex-center overflow-hidden border-b xl:border-b-0 xl:border-r border-white/[0.08]">
+        {/* Left: High-Res Image with Filter */}
+        <div className="relative md:w-[58%] aspect-square md:aspect-auto bg-black flex-center overflow-hidden">
           <img
             src={post.imagesUrl}
             alt="post"
-            className="w-full h-full max-h-[600px] object-cover"
+            className={`w-full h-full object-cover ${
+              post.filter ? `filter-${post.filter}` : ""
+            }`}
           />
         </div>
 
-        {/* Post Details & Comments Panel */}
-        <div className="post_details-info">
-          {/* Author Header */}
-          <div className="flex items-center justify-between w-full">
+        {/* Right: Comments, Stats & Interactions */}
+        <div className="flex flex-col flex-1 justify-between bg-dark-1 md:border-l border-dark-4 max-h-[600px]">
+          {/* Top Post Header */}
+          <div className="flex items-center justify-between p-4 border-b border-dark-4">
             <Link
-              to={`/profile/${post.creator?.$id || post.creator?.id || user.id}`}
+              to={`/profile/${post.creator.$id || post.creator.id}`}
               className="flex items-center gap-3 group"
             >
-              <Avatar className="h-11 w-11 ring-2 ring-primary-500/40 group-hover:ring-primary-500 transition-all">
-                <AvatarImage src={creatorAvatar} alt={post.creator?.name} />
-                <AvatarFallback className="bg-primary-500/20 text-primary-500 font-bold">
-                  {post.creator?.name ? post.creator.name[0] : "C"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="ig-story-ring">
+                <Avatar className="h-8 w-8 ring-2 ring-dark-1">
+                  <AvatarImage src={post.creator.imageUrl} />
+                  <AvatarFallback className="text-xs">
+                    {post.creator.name ? post.creator.name[0] : "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
 
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-light-1 text-sm group-hover:text-primary-500 transition-colors">
-                    {post.creator?.name}
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs font-bold text-light-1 group-hover:text-light-3">
+                  {post.creator.username || post.creator.name}
+                </span>
+                {post.location && (
+                  <span className="text-[11px] text-light-4 truncate max-w-[180px]">
+                    {post.location}
                   </span>
-                  <Sparkles className="w-3.5 h-3.5 text-accent-cyan" />
-                </div>
-                <div className="flex items-center gap-2 text-light-4 text-xs">
-                  <span>{multiFormatDateString(post.$createdAt)}</span>
-                  {post.location && (
-                    <>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-secondary-500" />
-                        {post.location}
-                      </span>
-                    </>
-                  )}
-                </div>
+                )}
               </div>
             </Link>
 
-            {/* Author Actions (Edit / Delete) */}
-            {isAuthor && (
-              <div className="flex items-center gap-1">
-                <Link
-                  to={`/update-post/${post.$id}`}
-                  className="p-2 rounded-xl text-light-3 hover:text-white hover:bg-white/[0.06] transition-all"
-                  title="Edit Post"
-                >
-                  <Edit className="w-4 h-4" />
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="h-9 w-9 text-light-4 hover:text-red hover:bg-red/10 rounded-xl"
-                  title="Delete Post"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+            <button
+              onClick={() => setShowOptionsModal(true)}
+              className="p-1 rounded-full text-light-4 hover:text-white"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
           </div>
 
-          <hr className="w-full border-white/[0.08]" />
+          {/* Comments & Caption Scroll Area */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+            {/* Author Caption */}
+            {post.caption && (
+              <div className="flex items-start gap-3 text-xs leading-relaxed">
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarImage src={post.creator.imageUrl} />
+                  <AvatarFallback>{post.creator.name[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <span className="font-bold text-light-1 mr-2">
+                    {post.creator.username || post.creator.name}
+                  </span>
+                  <span className="text-light-2">{post.caption}</span>
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-light-4">
+                    <span>{multiFormatDateString(post.$createdAt)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Caption & Tag Chips */}
-          <div className="flex flex-col gap-3 w-full">
-            <p className="text-sm leading-relaxed text-light-1">
-              {post.caption}
-            </p>
-
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag: string, index: number) => (
-                  <Badge
-                    key={index}
-                    variant="outline"
-                    className="text-xs bg-dark-3/60 text-primary-500 border-primary-500/20"
+            {/* Tags */}
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pl-11">
+                {post.tags.map((tag: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="text-xs text-primary-500 font-medium hover:underline cursor-pointer"
                   >
                     #{tag}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             )}
-          </div>
 
-          {/* Interactive Comments Thread */}
-          <div className="flex flex-col flex-1 w-full gap-3 mt-2 min-h-[140px]">
-            <span className="text-xs font-bold text-light-3 uppercase tracking-wider">
-              Comments ({comments.length})
-            </span>
+            <hr className="border-dark-4 my-1" />
 
-            <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-              {comments.length > 0 ? (
-                comments.map((c: any, idx: number) => (
-                  <div
-                    key={c.id || idx}
-                    className="flex items-start gap-2.5 p-3 rounded-2xl bg-dark-3/50 text-xs border border-white/[0.04]"
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={c.userAvatar} />
-                      <AvatarFallback>{c.userName ? c.userName[0] : "U"}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-light-1">{c.userName}</span>
-                        <span className="text-[10px] text-light-4">{c.createdAt}</span>
-                      </div>
-                      <p className="text-light-2 mt-1">{c.text}</p>
-                    </div>
+            {/* Comments List */}
+            {comments.map((c: any) => (
+              <div
+                key={c.id}
+                className="flex items-start gap-3 text-xs leading-relaxed"
+              >
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={c.userAvatar} />
+                  <AvatarFallback className="text-[10px]">
+                    {c.userName ? c.userName[0] : "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <span className="font-bold text-light-1 mr-2">
+                    {c.userName}
+                  </span>
+                  <span className="text-light-2">{c.text}</span>
+                  <div className="flex items-center gap-3 pt-1 text-[10px] text-light-4">
+                    <span>{c.createdAt}</span>
+                    <button className="font-semibold hover:text-white">
+                      Reply
+                    </button>
                   </div>
-                ))
-              ) : (
-                <p className="text-xs text-light-4 text-center py-6">
-                  No comments yet. Be the first to share love! 🐾
-                </p>
-              )}
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Post Stats & Comment Input Form */}
-          <div className="w-full flex flex-col gap-3 pt-2">
-            <PostStats post={post} userId={user.id} commentCount={comments.length} />
+          {/* Action Row & Like Counters */}
+          <div className="p-4 border-t border-dark-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleLike}
+                  className="transition-transform active:scale-125"
+                >
+                  <Heart
+                    className={`w-6 h-6 stroke-[1.75px] ${
+                      isLiked
+                        ? "fill-secondary-500 text-secondary-500"
+                        : "text-light-1 hover:text-light-3"
+                    }`}
+                  />
+                </button>
 
-            <form onSubmit={handleSendComment} className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() =>
+                    document.getElementById("comment-input-field")?.focus()
+                  }
+                  className="text-light-1 hover:text-light-3"
+                >
+                  <MessageCircle className="w-6 h-6 stroke-[1.75px] -rotate-90" />
+                </button>
+
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="text-light-1 hover:text-light-3"
+                >
+                  <Send className="w-6 h-6 stroke-[1.75px]" />
+                </button>
+              </div>
+
+              <button
+                onClick={handleSave}
+                className="text-light-1 hover:text-light-3 transition-transform active:scale-125"
+              >
+                <Bookmark
+                  className={`w-6 h-6 stroke-[1.75px] ${
+                    isSaved ? "fill-white text-white" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Like count & Date */}
+            <div className="flex flex-col text-xs">
+              <span className="font-bold text-light-1">
+                {likes.length.toLocaleString()} likes
+              </span>
+              <span className="text-[10px] uppercase text-light-4 tracking-wider mt-0.5">
+                {multiFormatDateString(post.$createdAt)}
+              </span>
+            </div>
+
+            {/* Inline Comment Input */}
+            <form
+              onSubmit={handleAddComment}
+              className="pt-2 border-t border-dark-4 flex items-center gap-2"
+            >
+              <Smile className="w-5 h-5 text-light-4 hover:text-light-3 cursor-pointer shrink-0" />
               <input
+                id="comment-input-field"
                 type="text"
                 placeholder="Add a comment..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="flex-1 h-11 px-4 rounded-xl bg-dark-3/80 border border-white/[0.08] text-xs text-light-1 placeholder:text-light-4 focus:outline-none focus:border-primary-500"
+                value={commentInput}
+                onChange={(e) => setCommentInput(e.target.value)}
+                className="w-full bg-transparent text-xs text-light-1 placeholder:text-light-4 focus:outline-none"
               />
-              <Button
-                type="submit"
-                disabled={isAddingComment || !commentText.trim()}
-                className="h-11 px-4 rounded-xl bg-gradient-to-r from-primary-500 to-secondary-500 text-white font-semibold"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              {commentInput.trim() && (
+                <button
+                  type="submit"
+                  disabled={isAddingComment}
+                  className="text-xs font-bold text-primary-500 hover:text-primary-600 shrink-0"
+                >
+                  Post
+                </button>
+              )}
             </form>
           </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog Modal */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete this post?</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this post? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              className="rounded-xl border-white/10"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeletePost}
-              disabled={isDeleting}
-              className="rounded-xl"
-            >
-              {isDeleting ? "Deleting..." : "Delete Post"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Related Posts Section */}
+      {/* More Posts Section */}
       {relatedPosts.length > 0 && (
-        <div className="w-full max-w-5xl mt-12 mb-8">
-          <h3 className="body-bold md:h3-bold text-light-1 mb-6 flex items-center gap-2">
-            <span>More from MeowBox Feed</span>
-            <Sparkles className="w-4 h-4 text-primary-500" />
+        <div className="w-full max-w-5xl flex flex-col gap-6 pt-10 border-t border-dark-4">
+          <h3 className="text-sm font-bold text-light-3">
+            More posts from creators
           </h3>
-          <GridPostList posts={relatedPosts.slice(0, 6)} />
+          <GridPostList posts={relatedPosts} showStats={true} />
         </div>
+      )}
+
+      {/* Modals */}
+      {showShareModal && (
+        <SharePostModal
+          post={post}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
+
+      {showOptionsModal && (
+        <PostOptionsModal
+          post={post}
+          isAuthor={isAuthor}
+          onClose={() => setShowOptionsModal(false)}
+          onEdit={() => navigate(`/update-post/${post.$id}`)}
+          onDelete={handleDeletePost}
+          onShare={() => {
+            setShowOptionsModal(false);
+            setShowShareModal(true);
+          }}
+        />
       )}
     </div>
   );

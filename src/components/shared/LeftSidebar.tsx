@@ -1,140 +1,175 @@
-import { sidebarLinks } from "@/constants";
 import { useUserContext } from "@/context/AuthContext";
 import { useSignOutAccount } from "@/lib/react-query/queriesAndMutations";
-import { INavLink } from "@/types";
 import {
   Bookmark,
+  Clapperboard,
   Compass,
+  Heart,
   Home,
   LogOut,
-  PlusCircle,
+  Menu,
+  MessageCircle,
+  PlusSquare,
+  Search,
+  Settings,
   Sparkles,
-  Users,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
-
-const iconMap: Record<string, React.ReactNode> = {
-  Home: <Home className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />,
-  Explore: <Compass className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />,
-  People: <Users className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />,
-  Saved: <Bookmark className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />,
-  "Create Post": <PlusCircle className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />,
-};
+import NotificationsPopover from "./NotificationsPopover";
 
 const LeftSidebar = () => {
-  const { mutate: signOut, isSuccess } = useSignOutAccount();
+  const { mutate: signOut } = useSignOutAccount();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useUserContext();
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/sign-in");
   };
 
+  const navItems = [
+    { route: "/", label: "Home", icon: Home },
+    { route: "/explore", label: "Explore", icon: Compass },
+    { route: "/explore?tab=reels", label: "Reels", icon: Clapperboard },
+    {
+      route: "#notifications",
+      label: "Notifications",
+      icon: Heart,
+      badge: true,
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        setShowNotifications(!showNotifications);
+      },
+    },
+    { route: "/create-post", label: "Create", icon: PlusSquare },
+    { route: "/saved", label: "Saved", icon: Bookmark },
+    {
+      route: `/profile/${user.id}`,
+      label: "Profile",
+      icon: null,
+      isAvatar: true,
+    },
+  ];
+
   return (
-    <nav className="leftsidebar custom-scrollbar">
-      <div className="flex flex-col gap-7">
-        {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-3 px-2 group">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-500 via-secondary-500 to-accent-cyan flex-center shadow-glow group-hover:rotate-6 transition-transform duration-300">
-            <span className="text-xl">🐱</span>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-2xl font-black tracking-tight text-white">Meow</span>
-              <span className="text-2xl font-black tracking-tight gradient-text">Box</span>
-            </div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-light-4 -mt-1 flex items-center gap-1">
-              Social App <Sparkles className="w-2.5 h-2.5 text-primary-500" />
-            </span>
-          </div>
-        </Link>
+    <>
+      <nav className="leftsidebar">
+        {/* Top Logo & Links */}
+        <div className="flex flex-col gap-6 w-full">
+          {/* Brand Wordmark */}
+          <Link to="/" className="px-2 pt-2 flex items-center gap-2 group">
+            <h1 className="text-2xl font-bold tracking-tight text-white font-inter">
+              MeowBox
+            </h1>
+          </Link>
 
-        {/* User Mini Profile Card */}
-        <Link
-          to={`/profile/${user.id}`}
-          className="flex items-center gap-3 p-3 rounded-2xl bg-dark-3/60 border border-white/[0.06] hover:bg-dark-3/90 hover:border-primary-500/30 transition-all duration-200 group"
-        >
-          <div className="relative">
-            <Avatar className="h-11 w-11 ring-2 ring-primary-500/40 group-hover:ring-primary-500 transition-all">
-              <AvatarImage src={user.imageUrl} alt={user.name} />
-              <AvatarFallback className="bg-primary-500/20 text-primary-500">
-                {user.name ? user.name[0] : "M"}
-              </AvatarFallback>
-            </Avatar>
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-dark-2 rounded-full" />
-          </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <p className="body-bold text-light-1 truncate text-sm group-hover:text-primary-500 transition-colors">
-              {user.name || "Meow Explorer"}
-            </p>
-            <p className="text-xs text-light-4 truncate">
-              @{user.username || "meowbox"}
-            </p>
-          </div>
-        </Link>
+          {/* Navigation Links */}
+          <ul className="flex flex-col gap-1.5 w-full">
+            {navItems.map((item) => {
+              const isActive =
+                item.route !== "#notifications" && pathname === item.route;
+              const Icon = item.icon;
 
-        {/* Navigation Links */}
-        <ul className="flex flex-col gap-2">
-          {sidebarLinks.map((link: INavLink) => {
-            const isActive = pathname === link.route;
-
-            return (
-              <li key={link.label}>
-                <NavLink
-                  to={link.route}
-                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group relative ${
-                    isActive
-                      ? "bg-gradient-to-r from-primary-500 to-secondary-500 text-white font-semibold shadow-glow"
-                      : "text-light-3 hover:text-light-1 hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <span className={`${isActive ? "text-white" : "text-light-3 group-hover:text-primary-500"}`}>
-                    {iconMap[link.label] || (
-                      <img
-                        src={link.imgURL}
-                        alt={link.label}
-                        className={`w-5 h-5 ${isActive ? "invert-white" : ""}`}
-                      />
+              return (
+                <li key={item.label}>
+                  <NavLink
+                    to={item.route}
+                    onClick={item.onClick}
+                    className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-150 group ${
+                      isActive
+                        ? "font-bold text-white bg-dark-3"
+                        : "text-light-1 hover:bg-dark-3/60 font-medium"
+                    }`}
+                  >
+                    {item.isAvatar ? (
+                      <div className="relative">
+                        <Avatar
+                          className={`h-6 w-6 ring-2 ${
+                            isActive ? "ring-white" : "ring-transparent"
+                          }`}
+                        >
+                          <AvatarImage src={user.imageUrl} />
+                          <AvatarFallback className="text-[10px]">
+                            {user.name ? user.name[0] : "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                    ) : (
+                      Icon && (
+                        <div className="relative">
+                          <Icon
+                            className={`w-6 h-6 transition-transform group-hover:scale-105 ${
+                              isActive ? "stroke-[2.5px]" : "stroke-[1.75px]"
+                            }`}
+                          />
+                          {item.badge && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-secondary-500" />
+                          )}
+                        </div>
+                      )
                     )}
-                  </span>
-                  <span className="text-[15px]">{link.label}</span>
 
-                  {link.label === "Saved" && (
-                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-dark-4/60 text-light-3">
-                      PRO
-                    </span>
-                  )}
-                </NavLink>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+                    <span className="text-sm">{item.label}</span>
+                  </NavLink>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
-      {/* Footer Controls & Quick Create Post */}
-      <div className="flex flex-col gap-3 pt-6 border-t border-white/[0.06]">
-        <Link
-          to="/create-post"
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-primary-500 via-secondary-500 to-pink-500 text-white font-semibold shadow-glow hover:shadow-glow-pink hover:opacity-95 transition-all active:scale-[0.98]"
-        >
-          <PlusCircle className="w-5 h-5" />
-          <span>New Post</span>
-        </Link>
+        {/* Bottom More Options Menu */}
+        <div className="relative w-full pt-4 border-t border-dark-4">
+          {showMoreMenu && (
+            <div className="absolute bottom-16 left-0 w-52 bg-dark-2 border border-dark-4 rounded-2xl p-2 shadow-2xl flex flex-col gap-1 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+              <Link
+                to={`/update-profile/${user.id}`}
+                onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-dark-3 text-xs text-light-1"
+              >
+                <Settings className="w-4 h-4 text-light-3" />
+                <span>Settings</span>
+              </Link>
+              <Link
+                to="/saved"
+                onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-dark-3 text-xs text-light-1"
+              >
+                <Bookmark className="w-4 h-4 text-light-3" />
+                <span>Saved Collection</span>
+              </Link>
+              <hr className="border-dark-4 my-1" />
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red/10 text-xs text-red w-full text-left"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log out</span>
+              </button>
+            </div>
+          )}
 
-        <Button
-          variant="ghost"
-          className="w-full flex items-center justify-start gap-3 text-light-4 hover:text-red hover:bg-red/10 rounded-2xl py-3 px-4 transition-all duration-200"
-          onClick={handleSignOut}
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Log Out</span>
-        </Button>
-      </div>
-    </nav>
+          <button
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-dark-3 text-light-1 w-full text-sm font-medium transition-colors"
+          >
+            <Menu className="w-6 h-6 stroke-[1.75px]" />
+            <span>More</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Notifications Drawer */}
+      {showNotifications && (
+        <NotificationsPopover onClose={() => setShowNotifications(false)} />
+      )}
+    </>
   );
 };
 

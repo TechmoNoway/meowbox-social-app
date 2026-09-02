@@ -1,5 +1,6 @@
-import Loader from "@/components/shared/Loader";
 import PostCard from "@/components/shared/PostCard";
+import StoryViewer from "@/components/shared/StoryViewer";
+import Loader from "@/components/shared/Loader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUserContext } from "@/context/AuthContext";
@@ -9,272 +10,214 @@ import {
   MOCK_USERS,
   saveStoredFollows,
 } from "@/lib/mock/mockData";
-import {
-  useGetRecentPosts,
-  useGetUsers,
-} from "@/lib/react-query/queriesAndMutations";
-import { Flame, Plus, Sparkles, TrendingUp, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
+import { useGetRecentPosts } from "@/lib/react-query/queriesAndMutations";
+import { Check, Plus, Sparkles } from "lucide-react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
-const TRENDING_TAGS = [
-  { tag: "cutekitties", posts: "24.5k" },
-  { tag: "catloaf", posts: "18.2k" },
-  { tag: "naptime", posts: "12.8k" },
-  { tag: "mainecoon", posts: "9.4k" },
-  { tag: "boxlife", posts: "8.1k" },
-];
-
 const Home = () => {
-  const { data: posts, isPending: isPostLoading } = useGetRecentPosts();
-  const { data: creatorsData } = useGetUsers(5);
   const { user } = useUserContext();
+  const {
+    data: posts,
+    isLoading: isPostLoading,
+    isError: isErrorPosts,
+  } = useGetRecentPosts();
 
+  const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null);
   const [followedUsers, setFollowedUsers] = useState<string[]>(getStoredFollows());
-  const [activeStory, setActiveStory] = useState<any | null>(null);
 
-  const toggleFollow = (creatorId: string) => {
+  const toggleFollow = (userId: string) => {
     let updated: string[];
-    if (followedUsers.includes(creatorId)) {
-      updated = followedUsers.filter((id) => id !== creatorId);
+    if (followedUsers.includes(userId)) {
+      updated = followedUsers.filter((id) => id !== userId);
     } else {
-      updated = [...followedUsers, creatorId];
+      updated = [...followedUsers, userId];
     }
     setFollowedUsers(updated);
     saveStoredFollows(updated);
   };
 
-  const creators = creatorsData?.documents || MOCK_USERS.slice(0, 5);
-  const postList = posts?.documents || [];
+  const suggestedUsers = MOCK_USERS.filter((u) => u.$id !== user.id).slice(0, 5);
 
   return (
-    <div className="flex flex-1 w-full justify-center overflow-hidden">
-      {/* Main Center Feed Container */}
-      <div className="home-container">
-        <div className="home-posts">
-          {/* Top Stories / Creator Reel */}
-          <div className="w-full flex items-center gap-3.5 overflow-x-auto pb-2 pt-1 custom-scrollbar">
-            {/* My Story Creator Add */}
+    <div className="flex flex-1 justify-center w-full h-full overflow-y-auto custom-scrollbar bg-dark-1">
+      <div className="flex justify-center max-w-5xl w-full gap-10 py-6 px-0 sm:px-4">
+        {/* Main Feed Column */}
+        <div className="flex flex-col items-center max-w-[470px] w-full gap-6">
+          {/* Stories Reel Tray */}
+          <div className="w-full bg-dark-1 sm:bg-dark-1 border-b sm:border border-dark-4 sm:rounded-xl p-3.5 overflow-x-auto custom-scrollbar flex items-center gap-4">
+            {/* User's own add story */}
             <div className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer group">
               <div className="relative">
-                <Avatar className="w-16 h-16 ring-2 ring-primary-500/40 p-0.5">
+                <Avatar className="h-14 w-14 ring-2 ring-dark-4 group-hover:ring-primary-500 transition-all">
                   <AvatarImage src={user.imageUrl} />
-                  <AvatarFallback className="bg-primary-500/20 text-primary-500 font-bold">
+                  <AvatarFallback className="bg-dark-3 text-xs">
                     {user.name ? user.name[0] : "U"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-gradient-to-tr from-primary-500 to-secondary-500 flex-center text-white border-2 border-dark-1 shadow-sm">
-                  <Plus className="w-3 h-3" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-primary-500 border-2 border-dark-1 flex-center text-white">
+                  <Plus className="w-3.5 h-3.5 stroke-[3px]" />
                 </div>
               </div>
-              <span className="text-[11px] font-medium text-light-3 group-hover:text-light-1">
-                Your Story
+              <span className="text-[11px] text-light-3 truncate max-w-[64px] text-center">
+                Your story
               </span>
             </div>
 
             {/* Friend Stories */}
-            {MOCK_STORIES.map((story) => (
+            {MOCK_STORIES.map((story, index) => (
               <div
                 key={story.id}
-                onClick={() => setActiveStory(story)}
+                onClick={() => setActiveStoryIdx(index)}
                 className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer group"
               >
                 <div
-                  className={`p-0.5 rounded-full transition-transform duration-200 group-hover:scale-105 ${
-                    story.hasUnseen
-                      ? "bg-gradient-to-tr from-primary-500 via-secondary-500 to-accent-cyan shadow-glow"
-                      : "bg-white/10"
-                  }`}
+                  className={
+                    story.hasUnseen ? "ig-story-ring" : "ig-story-ring-seen"
+                  }
                 >
-                  <Avatar className="w-15 h-15 border-2 border-dark-1">
+                  <Avatar className="h-14 w-14 ring-2 ring-dark-1 group-hover:scale-[1.02] transition-transform">
                     <AvatarImage src={story.user.imageUrl} />
-                    <AvatarFallback>{story.user.name[0]}</AvatarFallback>
+                    <AvatarFallback className="bg-dark-3 text-xs">
+                      {story.user.name[0]}
+                    </AvatarFallback>
                   </Avatar>
                 </div>
-                <span className="text-[11px] font-medium text-light-3 truncate max-w-[64px] text-center group-hover:text-light-1">
-                  {story.user.name.split(" ")[0]}
+                <span className="text-[11px] text-light-1 truncate max-w-[64px] text-center font-normal">
+                  {story.user.username}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Feed Header */}
-          <div className="flex items-center justify-between w-full pt-2">
-            <div className="flex items-center gap-2">
-              <h1 className="h3-bold md:h2-bold text-white tracking-tight">Home Feed</h1>
-              <span className="text-xl">🐾</span>
-            </div>
-
-            <Link
-              to="/explore"
-              className="flex items-center gap-1 text-xs font-semibold text-primary-500 hover:text-secondary-500 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Explore More</span>
-            </Link>
-          </div>
-
-          {/* Posts List or Loader */}
+          {/* Posts Feed */}
           {isPostLoading && !posts ? (
-            <div className="flex flex-col gap-6 w-full py-8">
+            <div className="py-20">
               <Loader size="lg" />
-              <p className="text-center text-xs text-light-4">Fetching fresh feline stories...</p>
-            </div>
-          ) : postList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center glass-card rounded-[28px] w-full">
-              <span className="text-4xl mb-3">🐱</span>
-              <p className="font-bold text-light-1">No posts yet</p>
-              <p className="text-xs text-light-4 mt-1 mb-4">Be the first cat parent to share a moment!</p>
-              <Link
-                to="/create-post"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-secondary-500 text-white text-xs font-semibold shadow-glow"
-              >
-                Create First Post
-              </Link>
             </div>
           ) : (
-            <div className="flex flex-col flex-1 gap-7 w-full">
-              {postList.map((post: any) => (
-                <PostCard key={post.$id || post.caption} post={post} />
+            <div className="flex flex-col gap-5 w-full">
+              {posts?.documents.map((post: any) => (
+                <PostCard key={post.$id} post={post} />
               ))}
+
+              {/* End of Feed Indicator */}
+              <div className="flex flex-col items-center justify-center py-8 text-center gap-2 border-t border-dark-4 max-w-[470px] mx-auto">
+                <div className="w-10 h-10 rounded-full border border-dark-4 flex-center text-light-3">
+                  <Check className="w-5 h-5 text-primary-500" />
+                </div>
+                <p className="text-sm font-bold text-light-1">You're all caught up</p>
+                <p className="text-xs text-light-4">
+                  You've seen all new posts from the past 3 days.
+                </p>
+              </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Right Sidebar (Desktop Creators & Trending) */}
-      <aside className="home-creators">
-        {/* Top Creators Widget */}
-        <div className="flex flex-col gap-4 p-5 rounded-[24px] glass-card border border-white/[0.08]">
+        {/* Right Desktop Suggestions Sidebar */}
+        <aside className="hidden lg:flex flex-col w-[320px] pt-4 gap-5">
+          {/* Current User Card */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary-500" />
-              <h3 className="font-bold text-sm text-light-1">Top Creators</h3>
-            </div>
+            <Link
+              to={`/profile/${user.id}`}
+              className="flex items-center gap-3 group"
+            >
+              <Avatar className="h-11 w-11 ring-1 ring-dark-4">
+                <AvatarImage src={user.imageUrl} />
+                <AvatarFallback>{user.name ? user.name[0] : "U"}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs font-bold text-light-1 group-hover:text-light-3">
+                  {user.username || user.name}
+                </span>
+                <span className="text-xs text-light-4 truncate max-w-[150px]">
+                  {user.name}
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              to={`/profile/${user.id}`}
+              className="text-xs font-bold text-primary-500 hover:text-white transition-colors"
+            >
+              Switch
+            </Link>
+          </div>
+
+          {/* Suggestions Header */}
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs font-bold text-light-4">Suggested for you</span>
             <Link
               to="/all-users"
-              className="text-xs font-semibold text-primary-500 hover:underline"
+              className="text-xs font-bold text-light-1 hover:text-light-3"
             >
               See All
             </Link>
           </div>
 
+          {/* Suggested Creators List */}
           <div className="flex flex-col gap-3">
-            {creators.map((creator: any) => {
+            {suggestedUsers.map((creator) => {
               const isFollowing = followedUsers.includes(creator.$id);
 
               return (
                 <div
                   key={creator.$id}
-                  className="flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-white/[0.04] transition-all"
+                  className="flex items-center justify-between"
                 >
                   <Link
                     to={`/profile/${creator.$id}`}
-                    className="flex items-center gap-2.5 min-w-0"
+                    className="flex items-center gap-3 group"
                   >
-                    <Avatar className="h-9 w-9 ring-1 ring-primary-500/30">
+                    <Avatar className="h-9 w-9">
                       <AvatarImage src={creator.imageUrl} />
-                      <AvatarFallback className="text-xs">
-                        {creator.name[0]}
-                      </AvatarFallback>
+                      <AvatarFallback>{creator.name[0]}</AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-xs font-bold text-light-1 truncate">
-                        {creator.name}
-                      </p>
-                      <p className="text-[10px] text-light-4 truncate">
-                        @{creator.username}
-                      </p>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-xs font-bold text-light-1 group-hover:text-light-3">
+                        {creator.username}
+                      </span>
+                      <span className="text-[11px] text-light-4 truncate max-w-[140px]">
+                        Suggested for you
+                      </span>
                     </div>
                   </Link>
 
-                  <Button
-                    size="sm"
+                  <button
                     onClick={() => toggleFollow(creator.$id)}
-                    className={`h-7 px-3 text-[11px] font-semibold rounded-lg transition-all ${
+                    className={`text-xs font-bold transition-colors ${
                       isFollowing
-                        ? "bg-dark-4 text-light-3 hover:bg-dark-5 hover:text-white"
-                        : "bg-primary-500/20 text-primary-500 border border-primary-500/30 hover:bg-primary-500 hover:text-white"
+                        ? "text-light-4 hover:text-white"
+                        : "text-primary-500 hover:text-primary-600"
                     }`}
                   >
                     {isFollowing ? "Following" : "Follow"}
-                  </Button>
+                  </button>
                 </div>
               );
             })}
           </div>
-        </div>
 
-        {/* Trending Tags Widget */}
-        <div className="flex flex-col gap-4 p-5 rounded-[24px] glass-card border border-white/[0.08]">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-secondary-500" />
-            <h3 className="font-bold text-sm text-light-1">Trending Topics</h3>
-          </div>
-
-          <div className="flex flex-col gap-2.5">
-            {TRENDING_TAGS.map((item) => (
-              <Link
-                key={item.tag}
-                to={`/explore`}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/[0.04] transition-all text-xs"
-              >
-                <div className="flex flex-col">
-                  <span className="font-bold text-light-2 hover:text-primary-500 transition-colors">
-                    #{item.tag}
-                  </span>
-                  <span className="text-[10px] text-light-4">
-                    {item.posts} posts this week
-                  </span>
-                </div>
-                <Flame className="w-3.5 h-3.5 text-secondary-500" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      {/* Story Viewer Lightbox Modal */}
-      {activeStory && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex-center p-4"
-          onClick={() => setActiveStory(null)}
-        >
-          <div
-            className="relative max-w-sm w-full bg-dark-2 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Story Progress Bar */}
-            <div className="absolute top-3 left-3 right-3 h-1 bg-white/20 rounded-full overflow-hidden z-20">
-              <div className="h-full bg-primary-500 rounded-full animate-[shimmer_5s_linear]" />
+          {/* Instagram Style Legal Footer */}
+          <div className="pt-6 flex flex-col gap-4 text-[11px] text-light-4 leading-relaxed">
+            <div className="flex flex-wrap gap-x-1.5 gap-y-1">
+              <span>About</span> • <span>Help</span> • <span>Press</span> •{" "}
+              <span>API</span> • <span>Jobs</span> • <span>Privacy</span> •{" "}
+              <span>Terms</span> • <span>Locations</span> • <span>Language</span>
             </div>
-
-            {/* Story Header */}
-            <div className="absolute top-6 left-4 right-4 flex items-center justify-between z-20">
-              <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8 ring-2 ring-primary-500">
-                  <AvatarImage src={activeStory.user.imageUrl} />
-                  <AvatarFallback>{activeStory.user.name[0]}</AvatarFallback>
-                </Avatar>
-                <span className="text-xs font-bold text-white shadow-sm">
-                  {activeStory.user.name}
-                </span>
-              </div>
-              <button
-                onClick={() => setActiveStory(null)}
-                className="w-7 h-7 rounded-full bg-black/50 text-white flex-center text-xs hover:bg-black"
-              >
-                ✕
-              </button>
-            </div>
-
-            <img
-              src={activeStory.media}
-              alt="Story"
-              className="w-full h-[520px] object-cover"
-            />
+            <span>© 2026 MEOWBOX FROM INSTA</span>
           </div>
-        </div>
+        </aside>
+      </div>
+
+      {/* Fullscreen Story Viewer Modal */}
+      {activeStoryIdx !== null && (
+        <StoryViewer
+          stories={MOCK_STORIES}
+          initialStoryIndex={activeStoryIdx}
+          onClose={() => setActiveStoryIdx(null)}
+        />
       )}
     </div>
   );
