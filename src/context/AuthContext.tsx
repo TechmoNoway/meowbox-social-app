@@ -1,5 +1,5 @@
-import { getCurrentUser } from "@/lib/appwrite/api";
-import { isAppwriteConfigured } from "@/lib/appwrite/config";
+import { getCurrentUser } from "@/lib/supabase/api";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { CURRENT_DEMO_USER, getStoredUser } from "@/lib/mock/mockData";
 import { IUser } from "@/types";
 import { createContext, useContext, useEffect, useState } from "react";
@@ -48,7 +48,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const checkAuthUser = async () => {
     setIsLoading(true);
     try {
-      if (!isAppwriteConfigured) {
+      if (!isSupabaseConfigured) {
         const loggedIn = localStorage.getItem("meowbox_logged_in");
         if (loggedIn === "false") {
           setIsAuthenticated(false);

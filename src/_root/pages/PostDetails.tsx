@@ -62,7 +62,8 @@ const PostDetails = () => {
   const [isSaved, setIsSaved] = useState(!!savedPostRecord);
 
   const isAuthor =
-    user.id === post?.creator?.$id || user.id === post?.creator?.id;
+    user.id === (post?.creator as any)?.$id ||
+    user.id === (post?.creator as any)?.id;
 
   const handleLike = () => {
     let newLikes = [...likes];
@@ -161,7 +162,7 @@ const PostDetails = () => {
           {/* Top Post Header */}
           <div className="flex items-center justify-between p-4 border-b border-dark-4">
             <Link
-              to={`/profile/${post.creator.$id || post.creator.id}`}
+              to={`/profile/${post.creator.$id || (post.creator as any)?.id}`}
               className="flex items-center gap-3 group"
             >
               <div className="ig-story-ring">
